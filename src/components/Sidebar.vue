@@ -23,10 +23,10 @@ function logout() {
   <div class="w-64 bg-slate-50 min-h-screen border-r border-gray-200 flex flex-col justify-between hidden md:flex">
     <div>
       <div class="flex items-center px-6 py-8">
-        <img src="../assets/vue.svg" alt="Kas Kelas Logo" class="h-10 w-10 mr-3" />
+        <img src="/Logo.png" alt="Kasku" class="h-10 w-10 mr-3" />
         <div>
-          <h1 class="text-xl font-bold text-blue-900 tracking-tight">Kas Kelas</h1>
-          <p class="text-[10px] text-gray-500 uppercase tracking-widest font-semibold mt-0.5">Academic Curator</p>
+          <h1 class="text-xl font-bold text-blue-900 tracking-tight">Kasku</h1>
+          <p class="text-[10px] text-gray-500 uppercase tracking-widest font-semibold mt-0.5">Pengelola Keuangan</p>
         </div>
       </div>
 
@@ -66,7 +66,7 @@ function logout() {
         <svg class="mr-3 h-5 w-5 text-gray-400 group-hover:text-red-500 transition-colors duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
         </svg>
-        Logout
+        Keluar
       </button>
     </div>
   </div>

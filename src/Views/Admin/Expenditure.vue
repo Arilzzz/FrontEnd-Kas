@@ -14,15 +14,24 @@ const previewImage = ref(null)
 const fileError = ref('')
 
 const expenditures = ref([])
-const MONTHLY_BURN_RATE = 1450000
-const REMAINING_BUDGET = 4250000
+const payments = ref([])
+
+const saldoAktif = computed(() => {
+  const totalIn = payments.value.reduce((sum, p) => sum + Number(p.jumlah_pemasukkan), 0)
+  const totalOut = expenditures.value.reduce((sum, e) => sum + Number(e.jumlah_pengeluaran), 0)
+  return totalIn - totalOut
+})
 
 // Fetch
 const fetchExpenditures = async () => {
   loading.value = true
   try {
-    const res = await api.get('/pengeluaran').catch(() => ({ data: { Data: [] } }))
-    expenditures.value = res.data.Data || res.data || []
+    const [expRes, payRes] = await Promise.all([
+      api.get('/pengeluaran').catch(() => ({ data: { Data: [] } })),
+      api.get('/pembayaran').catch(() => ({ data: { Data: [] } }))
+    ])
+    expenditures.value = expRes.data.Data || expRes.data || []
+    payments.value = payRes.data.Data || payRes.data || []
   } catch (error) {
     console.error("Error fetching expenditures:", error)
   } finally {
@@ -40,7 +49,7 @@ const handleFileChange = (e) => {
   if (!file) return
   
   if (file.size > 5 * 1024 * 1024) {
-    fileError.value = "File exceeds 5MB limit."
+    fileError.value = "Ukuran file melebihi batas 5MB."
     selectedFile.value = null
     previewImage.value = null
     return
@@ -78,7 +87,6 @@ const submitExpenditure = async () => {
     description.value = ''
     amount.value = ''
     selectedFile.value = null
-    previewImage.value = null
     
     // Refresh
     await fetchExpenditures()
@@ -86,7 +94,7 @@ const submitExpenditure = async () => {
   } catch (error) {
     console.error("Failed to submit:", error)
     if (error.response) {
-      alert("Validation Error: " + JSON.stringify(error.response.data))
+      alert("Error: " + (error.response.data.message || JSON.stringify(error.response.data)))
     }
   } finally {
     isSubmitting.value = false
@@ -116,20 +124,20 @@ const recentProofs = computed(() => {
   <AdminLayout>
     <!-- Header -->
     <div class="mb-8">
-      <p class="text-xs font-bold text-blue-600 uppercase tracking-widest mb-1">LEDGER MANAGEMENT</p>
+      <p class="text-xs font-bold text-blue-600 uppercase tracking-widest mb-1">MANAJEMEN PENGELUARAN</p>
       <div class="flex justify-between items-end">
         <div>
-          <h1 class="text-4xl font-black text-gray-900 tracking-tight mb-2">Expense Recording</h1>
-          <p class="text-gray-500 font-medium max-w-lg">Maintain total transparency with verified receipts and detailed transaction logs for the academic year.</p>
+          <h1 class="text-4xl font-black text-gray-900 tracking-tight mb-2">Pencatatan Pengeluaran</h1>
+          <p class="text-gray-500 font-medium max-w-lg">Jaga transparansi kas dengan bukti transaksi dan log pengeluaran yang terverifikasi.</p>
         </div>
         
-        <!-- Monthly Burn Rate -->
+        <!-- Saldo Kas -->
         <div class="bg-white rounded-2xl px-6 py-4 border border-gray-100 shadow-sm flex items-center gap-6">
           <div>
-            <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">MONTHLY BURN RATE</p>
-            <h3 class="text-2xl font-black text-red-600">{{ formatRupiah(MONTHLY_BURN_RATE) }}</h3>
+            <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">TOTAL SALDO KAS</p>
+            <h3 class="text-2xl font-black text-blue-600">{{ formatRupiah(saldoAktif) }}</h3>
           </div>
-          <svg class="w-8 h-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+          <svg class="w-8 h-8 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
         </div>
       </div>
     </div>
@@ -142,18 +150,18 @@ const recentProofs = computed(() => {
           
           <div class="flex items-center gap-3 mb-8">
             <div class="w-1 h-6 bg-blue-600 rounded-full"></div>
-            <h2 class="text-xl font-bold text-gray-900">Record New Expenditure</h2>
+            <h2 class="text-xl font-bold text-gray-900">Catat Pengeluaran Baru</h2>
           </div>
 
           <form @submit.prevent="submitExpenditure" class="space-y-6 relative z-10">
             <div>
-              <label class="block text-sm font-bold text-gray-900 mb-2">Transaction Description</label>
-              <input v-model="description" type="text" required class="w-full bg-gray-100/80 border-transparent focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-xl px-4 py-3.5 text-sm font-medium transition-all" placeholder="e.g. Science Laboratory Supplies" />
+              <label class="block text-sm font-bold text-gray-900 mb-2">Keterangan Transaksi</label>
+              <input v-model="description" type="text" required class="w-full bg-gray-100/80 border-transparent focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-xl px-4 py-3.5 text-sm font-medium transition-all" placeholder="Misalnya: Alat Laboratorium IPA" />
             </div>
 
             <div class="grid grid-cols-2 gap-6">
               <div>
-                <label class="block text-sm font-bold text-gray-900 mb-2">Amount (IDR)</label>
+                <label class="block text-sm font-bold text-gray-900 mb-2">Jumlah (Rp)</label>
                 <div class="relative">
                   <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                     <span class="text-gray-900 font-bold">Rp</span>
@@ -162,13 +170,13 @@ const recentProofs = computed(() => {
                 </div>
               </div>
               <div>
-                <label class="block text-sm font-bold text-gray-900 mb-2">Transaction Date</label>
+                <label class="block text-sm font-bold text-gray-900 mb-2">Tanggal Transaksi</label>
                 <input v-model="transactionDate" type="date" required class="w-full bg-gray-100/80 border-transparent focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-xl px-4 py-3.5 text-sm font-medium transition-all" />
               </div>
             </div>
 
             <div>
-              <label class="block text-sm font-bold text-gray-900 mb-2">Upload Proof/Receipt</label>
+              <label class="block text-sm font-bold text-gray-900 mb-2">Unggah Bukti/Nota</label>
               <div class="border-2 border-dashed border-gray-200 rounded-2xl p-6 flex items-center justify-between hover:border-blue-400 transition-colors bg-gray-50/50">
                 <div class="flex items-center gap-4">
                   <div class="w-16 h-16 bg-gray-200 rounded-xl flex flex-shrink-0 items-center justify-center overflow-hidden">
@@ -176,15 +184,15 @@ const recentProofs = computed(() => {
                     <svg v-else class="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                   </div>
                   <div>
-                    <h4 class="font-bold text-gray-900 text-sm mb-1">Select a file to upload</h4>
-                    <p class="text-xs font-medium text-gray-500">PNG, JPG or PDF up to 5MB. Must be clear and legible.</p>
+                    <h4 class="font-bold text-gray-900 text-sm mb-1">Pilih file untuk diunggah</h4>
+                    <p class="text-xs font-medium text-gray-500">PNG, JPG atau PDF hingga 5MB. Pastikan gambar jelas.</p>
                     <p v-if="fileError" class="text-xs font-bold text-red-500 mt-1">{{ fileError }}</p>
                   </div>
                 </div>
                 <div class="relative">
                   <input type="file" @change="handleFileChange" accept="image/*,.pdf" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" required />
                   <button type="button" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold py-2.5 px-6 rounded-lg transition-colors pointer-events-none">
-                    Browse
+                    Cari File
                   </button>
                 </div>
               </div>
@@ -193,7 +201,7 @@ const recentProofs = computed(() => {
             <button type="submit" :disabled="isSubmitting" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-600/20 transition-all active:scale-[0.98] disabled:opacity-70 flex items-center justify-center gap-2">
               <svg v-if="!isSubmitting" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
               <svg v-else class="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-              {{ isSubmitting ? 'Processing...' : 'Commit Transaction' }}
+              {{ isSubmitting ? 'Memproses...' : 'Simpan Transaksi' }}
             </button>
           </form>
         </div>
@@ -202,19 +210,19 @@ const recentProofs = computed(() => {
       <!-- Right Column: Info Cards -->
       <div class="lg:col-span-4 space-y-6">
         
-        <!-- Remaining Budget Card -->
+        <!-- Sisa Saldo Kas Card -->
         <div class="bg-blue-600 rounded-3xl p-8 text-white relative overflow-hidden shadow-xl shadow-blue-600/20">
           <div class="absolute -right-6 -bottom-6 w-32 h-32 border-[20px] border-blue-500/30 rounded-full"></div>
           <div class="absolute -right-2 -bottom-2 w-20 h-20 bg-blue-500/20 rounded-full"></div>
           
-          <h3 class="text-sm font-bold text-blue-100 mb-2 relative z-10">Remaining Budget</h3>
-          <h2 class="text-3xl font-black mb-6 relative z-10">{{ formatRupiah(REMAINING_BUDGET) }}</h2>
+          <h3 class="text-sm font-bold text-blue-100 mb-2 relative z-10">Total Dana Tersedia</h3>
+          <h2 class="text-3xl font-black mb-6 relative z-10">{{ formatRupiah(saldoAktif) }}</h2>
           
           <div class="relative z-10">
             <div class="w-full bg-blue-800/50 rounded-full h-1.5 mb-2">
-              <div class="bg-green-400 h-1.5 rounded-full" style="width: 75%"></div>
+              <div class="bg-green-400 h-1.5 rounded-full" style="width: 100%"></div>
             </div>
-            <p class="text-[10px] font-medium text-blue-100">75% of quarterly budget remaining</p>
+            <p class="text-[10px] font-medium text-blue-100">Kapasitas Maksimal Pengeluaran</p>
           </div>
         </div>
 
@@ -224,16 +232,16 @@ const recentProofs = computed(() => {
             <div class="w-6 h-6 bg-green-500 text-white rounded-full flex items-center justify-center flex-shrink-0">
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
             </div>
-            <h3 class="font-bold text-gray-900 text-sm">Transparency Rule</h3>
+            <h3 class="font-bold text-gray-900 text-sm">Aturan Kas</h3>
           </div>
           <p class="text-xs font-medium text-gray-600 leading-relaxed">
-            All expenses over <span class="font-bold text-gray-900">Rp 500.000</span> require second-tier admin approval. Ensure all receipts are high-resolution.
+            Semua transaksi pengeluaran <span class="font-bold text-gray-900">wajib</span> menyertakan bukti foto nota atau resi pembayaran yang jelas.
           </p>
         </div>
 
         <!-- Recent Proofs -->
         <div class="bg-white border border-gray-100 rounded-3xl p-6">
-          <h3 class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">RECENT PROOFS</h3>
+          <h3 class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">BUKTI TERAKHIR</h3>
           <div class="flex gap-3">
             <div v-for="proof in recentProofs" :key="proof.id" class="w-12 h-12 rounded-lg bg-gray-200 overflow-hidden border border-gray-100 shadow-sm">
               <img :src="proof.url" class="w-full h-full object-cover" />
@@ -242,7 +250,7 @@ const recentProofs = computed(() => {
               +{{ expenditures.length - 3 }}
             </div>
             <div v-if="expenditures.length === 0" class="text-xs text-gray-400 font-medium italic py-2">
-              No proofs available yet.
+              Belum ada bukti yang diunggah.
             </div>
           </div>
         </div>
@@ -255,7 +263,7 @@ const recentProofs = computed(() => {
       <div class="flex items-center justify-between mb-4">
         <div class="flex items-center gap-3">
           <div class="w-1 h-6 bg-red-600 rounded-full"></div>
-          <h2 class="text-xl font-bold text-gray-900">Audit History</h2>
+          <h2 class="text-xl font-bold text-gray-900">Riwayat Pengeluaran</h2>
         </div>
         <div class="flex gap-2">
           <button class="px-4 py-2 bg-white border border-gray-200 text-sm font-bold text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2 shadow-sm">
@@ -263,8 +271,8 @@ const recentProofs = computed(() => {
             Filter
           </button>
           <button class="px-4 py-2 bg-white border border-gray-200 text-sm font-bold text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2 shadow-sm">
-            <svg class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-            Export
+            <svg class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4-4m0 0l-4-4m4 4V4"/></svg>
+            Ekspor
           </button>
         </div>
       </div>
@@ -273,16 +281,16 @@ const recentProofs = computed(() => {
         <table class="min-w-full divide-y divide-gray-100">
           <thead class="bg-gray-50/50">
             <tr>
-              <th scope="col" class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider w-40">Date</th>
-              <th scope="col" class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Description</th>
-              <th scope="col" class="px-6 py-4 text-center text-xs font-bold text-gray-500 uppercase tracking-wider w-32">Proof</th>
-              <th scope="col" class="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider w-48">Amount</th>
-              <th scope="col" class="px-6 py-4 text-center text-xs font-bold text-gray-500 uppercase tracking-wider w-32">Actions</th>
+              <th scope="col" class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider w-40">Tanggal</th>
+              <th scope="col" class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Keterangan</th>
+              <th scope="col" class="px-6 py-4 text-center text-xs font-bold text-gray-500 uppercase tracking-wider w-32">Bukti</th>
+              <th scope="col" class="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider w-48">Jumlah</th>
+              <th scope="col" class="px-6 py-4 text-center text-xs font-bold text-gray-500 uppercase tracking-wider w-32">Aksi</th>
             </tr>
           </thead>
           <tbody class="bg-white divide-y divide-gray-50">
-            <tr v-if="loading"><td colspan="5" class="px-6 py-8 text-center text-gray-500 font-medium">Loading history...</td></tr>
-            <tr v-else-if="expenditures.length === 0"><td colspan="5" class="px-6 py-8 text-center text-gray-500 font-medium">No expenditure history found.</td></tr>
+            <tr v-if="loading"><td colspan="5" class="px-6 py-8 text-center text-gray-500 font-medium">Memuat riwayat...</td></tr>
+            <tr v-else-if="expenditures.length === 0"><td colspan="5" class="px-6 py-8 text-center text-gray-500 font-medium">Tidak ada data pengeluaran.</td></tr>
             <tr v-for="exp in expenditures" :key="exp.id" class="hover:bg-gray-50/50 transition-colors group">
               <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">
                 {{ formatDate(exp.tanggal_pengeluaran) }}
@@ -292,7 +300,7 @@ const recentProofs = computed(() => {
                   <div class="w-1 h-8 rounded-full" :class="Number(exp.jumlah_pengeluaran) > 500000 ? 'bg-red-500' : 'bg-yellow-400'"></div>
                   <div>
                     <p class="text-sm font-bold text-gray-900">{{ exp.keterangan }}</p>
-                    <p class="text-[10px] font-medium text-gray-500 mt-0.5 uppercase">{{ Number(exp.jumlah_pengeluaran) > 500000 ? 'Major Expense' : 'Operations' }}</p>
+                    <p class="text-[10px] font-medium text-gray-500 mt-0.5 uppercase">{{ Number(exp.jumlah_pengeluaran) > 500000 ? 'Pengeluaran Besar' : 'Operasional' }}</p>
                   </div>
                 </div>
               </td>
@@ -300,7 +308,7 @@ const recentProofs = computed(() => {
                 <a v-if="exp.bukti_foto" :href="`http://127.0.0.1:8000/storage/${exp.bukti_foto}`" target="_blank" class="inline-flex w-10 h-10 bg-gray-100 rounded-lg items-center justify-center hover:bg-blue-100 text-gray-500 hover:text-blue-600 transition-colors">
                   <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                 </a>
-                <span v-else class="text-xs text-gray-400 font-medium">No File</span>
+                <span v-else class="text-xs text-gray-400 font-medium">Tidak ada</span>
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-black text-red-600">
                 {{ formatRupiah(exp.jumlah_pengeluaran) }}

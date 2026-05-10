@@ -10,6 +10,8 @@ import EditPayment from '../Views/Admin/EditPayment.vue'
 import Expenditure from '../Views/Admin/Expenditure.vue'
 import EditExpenditure from '../Views/Admin/EditExpenditure.vue'
 import Register from '../Views/Admin/Register.vue'
+import ForgotPassword from '../Views/Admin/ForgotPassword.vue'
+import ResetPassword from '../Views/Admin/ResetPassword.vue'
 
 const routes = [
     {
@@ -36,6 +38,16 @@ const routes = [
         path: '/admin/register',
         name: 'Register',
         component: Register
+    },
+    {
+        path: '/admin/forgot-password',
+        name: 'ForgotPassword',
+        component: ForgotPassword
+    },
+    {
+        path: '/admin/password-reset/:token',
+        name: 'ResetPassword',
+        component: ResetPassword
     },
     {
         path: '/admin/dashboard',

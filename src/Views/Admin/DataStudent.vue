@@ -11,6 +11,7 @@ const students = ref([])
 const payments = ref([])
 const expenses = ref([])
 const loading = ref(true)
+const searchQuery = ref('')
 
 const WEEKLY_DUES = 2000; // Rp 2000 per week
 
@@ -103,8 +104,16 @@ const enrichedStudents = computed(() => {
   })
 })
 
-const lunasCount = computed(() => enrichedStudents.value.filter(s => s.status === 'Lunas').length)
-const belumBayarCount = computed(() => enrichedStudents.value.filter(s => s.status === 'Belum Bayar').length)
+const filteredStudents = computed(() => {
+  if (!searchQuery.value) return enrichedStudents.value;
+  const q = searchQuery.value.toLowerCase();
+  return enrichedStudents.value.filter(s => 
+    s.name.toLowerCase().includes(q) || s.nisn.toLowerCase().includes(q)
+  );
+})
+
+const lunasCount = computed(() => filteredStudents.value.filter(s => s.status === 'Lunas').length)
+const belumBayarCount = computed(() => filteredStudents.value.filter(s => s.status === 'Belum Bayar').length)
 
 // Collection Rate and Outstanding for Current Month
 const collectionRate = computed(() => {
@@ -179,23 +188,37 @@ onMounted(() => {
 const navigateToAddStudent = () => {
   router.push('/admin/addstudent')
 }
+
+const handleEdit = (id) => {
+  router.push({ path: '/admin/addstudent', query: { editId: id } })
+}
+
+const handleDelete = async (id) => {
+  try {
+    await api.delete(`/student/${id}`)
+    await fetchData()
+  } catch (error) {
+    console.error('Failed to delete student:', error)
+    alert('Gagal menghapus siswa.')
+  }
+}
 </script>
 
 <template>
   <AdminLayout>
     <div class="mb-8 flex flex-col md:flex-row md:items-start md:justify-between gap-4">
       <div>
-        <h1 class="text-3xl font-bold text-gray-900 tracking-tight">Student Contributions</h1>
-        <p class="text-gray-500 mt-1">Manage class ledger database and track payment history per student.</p>
+        <h1 class="text-3xl font-bold text-gray-900 tracking-tight">Kontribusi Siswa</h1>
+        <p class="text-gray-500 mt-1">Kelola database kas kelas dan pantau riwayat pembayaran per siswa.</p>
       </div>
       <div class="flex items-center gap-3">
         <div class="flex bg-white rounded-lg border border-gray-200 p-1">
-          <button class="px-4 py-1.5 text-sm font-medium bg-gray-50 text-gray-800 rounded-md shadow-sm border border-gray-100">Table View</button>
-          <button class="px-4 py-1.5 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors">Analytics</button>
+          <button class="px-4 py-1.5 text-sm font-medium bg-gray-50 text-gray-800 rounded-md shadow-sm border border-gray-100">Tabel</button>
+          <button class="px-4 py-1.5 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors">Analitik</button>
         </div>
         <button class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-medium shadow-sm shadow-blue-200 transition-all active:scale-95">
           <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-          New Transaction
+          Transaksi Baru
         </button>
       </div>
     </div>
@@ -207,11 +230,28 @@ const navigateToAddStudent = () => {
       :treasuryBalance="treasuryBalance"
     />
 
+    <!-- Search Bar -->
+    <div class="mb-6 relative max-w-md">
+      <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+        <svg class="h-5 w-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+      </div>
+      <input
+        v-model="searchQuery"
+        type="text"
+        class="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl leading-5 bg-white placeholder-gray-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-100 focus:border-blue-300 sm:text-sm transition-all duration-200 shadow-sm"
+        placeholder="Cari nama siswa atau NIS..."
+      />
+    </div>
+
     <StudentRegistryTable 
-      :enrichedStudents="enrichedStudents"
+      :enrichedStudents="filteredStudents"
       :lunasCount="lunasCount"
       :belumBayarCount="belumBayarCount"
       :loading="loading"
+      @edit="handleEdit"
+      @delete="handleDelete"
     />
 
     <!-- Expand Class Roster CTA -->
@@ -219,11 +259,11 @@ const navigateToAddStudent = () => {
       <div class="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mb-4 text-gray-500 shadow-inner">
         <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
       </div>
-      <h3 class="text-xl font-bold text-gray-900 mb-2">Expand Class Roster</h3>
-      <p class="text-gray-500 mb-6 font-medium text-sm">New semester starting? You can import students from a CSV file or add them manually to the ledger.</p>
+      <h3 class="text-xl font-bold text-gray-900 mb-2">Kelola Data Kelas</h3>
+      <p class="text-gray-500 mb-6 font-medium text-sm">Semester baru dimulai? Anda dapat mengimpor siswa dari file CSV atau menambahkannya secara manual.</p>
       <div class="flex gap-4">
-        <button class="px-6 py-2.5 bg-white border border-gray-200 shadow-sm rounded-xl font-semibold text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-all">Import CSV</button>
-        <button @click="navigateToAddStudent" class="px-6 py-2.5 bg-blue-600 shadow-sm shadow-blue-200 rounded-xl font-semibold text-white hover:bg-blue-700 transition-all active:scale-95">Add New Student</button>
+        <button class="px-6 py-2.5 bg-white border border-gray-200 shadow-sm rounded-xl font-semibold text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-all">Impor CSV</button>
+        <button @click="navigateToAddStudent" class="px-6 py-2.5 bg-blue-600 shadow-sm shadow-blue-200 rounded-xl font-semibold text-white hover:bg-blue-700 transition-all active:scale-95">Tambah Siswa Baru</button>
       </div>
     </div>
   </AdminLayout>

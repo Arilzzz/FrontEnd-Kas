@@ -14,15 +14,15 @@ defineProps({
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-4">
           <div>
-            <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Timeframe</label>
+            <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Jangka Waktu</label>
             <select class="block w-40 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-lg border bg-white shadow-sm font-medium text-gray-700">
-              <option>Current Month</option>
+              <option>Bulan Ini</option>
             </select>
           </div>
           <div>
-            <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Week</label>
+            <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Minggu</label>
             <select class="block w-32 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-lg border bg-white shadow-sm font-medium text-gray-700">
-              <option>All Weeks</option>
+              <option>Semua Minggu</option>
             </select>
           </div>
         </div>
@@ -34,15 +34,15 @@ defineProps({
       <!-- Stats -->
       <div class="grid grid-cols-3 gap-4">
         <div class="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm border-l-4 border-l-green-500 relative overflow-hidden group hover:shadow-md transition-all">
-          <p class="text-xs font-bold text-gray-400 tracking-wider uppercase mb-1">Collection Rate</p>
+          <p class="text-xs font-bold text-gray-400 tracking-wider uppercase mb-1">Persentase Masuk</p>
           <p class="text-3xl font-extrabold text-gray-900">{{ collectionRate }}</p>
         </div>
         <div class="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm border-l-4 border-l-red-500 relative overflow-hidden group hover:shadow-md transition-all">
-          <p class="text-xs font-bold text-gray-400 tracking-wider uppercase mb-1">Outstanding</p>
+          <p class="text-xs font-bold text-gray-400 tracking-wider uppercase mb-1">Tunggakan</p>
           <p class="text-3xl font-extrabold text-gray-900">{{ outstanding }}</p>
         </div>
         <div class="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm border-l-4 border-l-blue-500 relative overflow-hidden group hover:shadow-md transition-all">
-          <p class="text-xs font-bold text-gray-400 tracking-wider uppercase mb-1">Total Students</p>
+          <p class="text-xs font-bold text-gray-400 tracking-wider uppercase mb-1">Total Siswa</p>
           <p class="text-3xl font-extrabold text-gray-900">{{ totalStudents }}</p>
         </div>
       </div>
@@ -50,10 +50,10 @@ defineProps({
     <!-- Treasury -->
     <div class="bg-gradient-to-br from-blue-600 to-blue-800 rounded-2xl p-6 text-white shadow-lg shadow-blue-200 relative overflow-hidden flex flex-col justify-center">
       <div class="absolute top-0 right-0 p-4 opacity-20"><svg class="w-24 h-24" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/><path d="M11 19.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.22.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zM15.9 8.1c-.2-.1-.4-.1-.6-.1H15V6c0-1.1-.9-2-2-2h-2c-.55 0-1 .45-1 1s.45 1 1 1h2v2h-1c-1.1 0-2 .9-2 2v2c0 1.1.9 2 2 2h3c.55 0 1 .45 1 1v1h-2v-1c0-.55-.45-1-1-1s-1 .45-1 1v3h2c1.1 0 2-.9 2-2v-2c0-1.1-.9-2-2-2h-3c-.55 0-1-.45-1-1V9h1c1.1 0 2 .9 2 2v1c0 .55.45 1 1 1s1-.45 1-1v-2.1c0-.4-.1-.8-.3-1.1l-.8-.8z"/></svg></div>
-      <p class="text-sm font-semibold tracking-wider text-blue-100 uppercase mb-2">Treasury Balance</p>
+      <p class="text-sm font-semibold tracking-wider text-blue-100 uppercase mb-2">Total Saldo Kas</p>
       <p class="text-4xl font-black mb-4 z-10">{{ treasuryBalance }}</p>
       <div class="flex items-center gap-2 z-10">
-        <span class="bg-white/20 text-blue-50 text-xs font-bold px-2 py-1 rounded">+12.4% vs last mo</span>
+        <span class="bg-white/20 text-blue-50 text-xs font-bold px-2 py-1 rounded">+12.4% vs bln lalu</span>
         <svg class="w-4 h-4 text-blue-200" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
       </div>
     </div>
