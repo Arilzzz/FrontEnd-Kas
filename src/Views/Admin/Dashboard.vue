@@ -4,7 +4,8 @@ import AdminLayout from '../../components/AdminLayout.vue'
 import DashboardSummaryCards from '../../components/Dashboard/DashboardSummaryCards.vue'
 import FinancialChart from '../../components/Dashboard/FinancialChart.vue'
 import RecentLedger from '../../components/Dashboard/RecentLedger.vue'
-import PaymentMatrix from '../../components/Dashboard/PaymentMatrix.vue'
+import QuickActions from '../../components/Dashboard/QuickActions.vue'
+import SiswaMenunggak from '../../components/Dashboard/SiswaMenunggak.vue'
 import api from '../../services/api'
 
 const students = ref([])
@@ -84,24 +85,74 @@ const balanceTrend = computed(() => {
 // 2. Quick Stats
 const totalStudents = computed(() => students.value.length)
 
-const unpaidThisWeek = computed(() => {
-  const paidThisWeekIds = payments.value
-    .filter(p => isThisWeek(p.tanggal_pemasukkan))
-    .map(p => Number(p.data_student_id))
-  
-  return students.value.filter(s => !paidThisWeekIds.includes(Number(s.id))).length
+const incomeThisMonthRaw = computed(() => {
+  const currentMonth = new Date().getMonth();
+  const currentYear = new Date().getFullYear();
+  return payments.value
+    .filter(p => {
+      const d = new Date(p.tanggal_pemasukkan);
+      return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+    })
+    .reduce((sum, p) => sum + Number(p.jumlah_pemasukkan), 0);
+})
+const incomeThisMonth = computed(() => formatRupiah(incomeThisMonthRaw.value))
+
+const totalTunggakanRaw = computed(() => {
+  const targetTotal = students.value.length * 4 * WEEKLY_DUES;
+  const diff = targetTotal - incomeThisMonthRaw.value;
+  return diff > 0 ? diff : 0;
+})
+const totalTunggakan = computed(() => formatRupiah(totalTunggakanRaw.value))
+
+const studentsMenunggak = computed(() => {
+  const currentMonth = new Date().getMonth();
+  const currentYear = new Date().getFullYear();
+  const targetThisMonth = 4 * WEEKLY_DUES;
+
+  const data = students.value.map(student => {
+    const paidThisMonth = payments.value
+      .filter(p => Number(p.data_student_id) === Number(student.id) && new Date(p.tanggal_pemasukkan).getMonth() === currentMonth && new Date(p.tanggal_pemasukkan).getFullYear() === currentYear)
+      .reduce((sum, p) => sum + Number(p.jumlah_pemasukkan), 0);
+      
+    const tunggakan = targetThisMonth - paidThisMonth;
+    return {
+      id: student.id,
+      name: student.nama_siswa || student.nama_lengkap || 'Unknown',
+      avatar: (student.nama_siswa || student.nama_lengkap || 'U').substring(0, 2).toUpperCase(),
+      tunggakanRaw: tunggakan,
+      tunggakan: formatRupiah(tunggakan)
+    }
+  }).filter(s => s.tunggakanRaw > 0);
+
+  return data.sort((a, b) => b.tunggakanRaw - a.tunggakanRaw); // Pass all, slice in component or handle pagination there
 })
 
 // 3. Recent Ledger
+const isLedgerExpanded = ref(false)
+const toggleLedger = () => {
+  isLedgerExpanded.value = !isLedgerExpanded.value
+}
+
 const recentLedger = computed(() => {
   const allLedger = [
     ...payments.value.map(p => {
       const student = students.value.find(s => Number(s.id) === Number(p.data_student_id))
+      
+      const currentMonth = new Date(p.tanggal_pemasukkan).getMonth();
+      const currentYear = new Date(p.tanggal_pemasukkan).getFullYear();
+      const targetThisMonth = 4 * WEEKLY_DUES;
+      const paidThisMonth = payments.value
+        .filter(pay => Number(pay.data_student_id) === Number(p.data_student_id) && new Date(pay.tanggal_pemasukkan).getMonth() === currentMonth && new Date(pay.tanggal_pemasukkan).getFullYear() === currentYear)
+        .reduce((sum, pay) => sum + Number(pay.jumlah_pemasukkan), 0);
+      const tunggakanRaw = targetThisMonth - paidThisMonth;
+
       return {
         id: `p-${p.id}`,
         type: 'income',
         title: `Class Fee - ${student ? (student.nama_siswa || student.nama_lengkap || '').split(' ')[0] : 'Unknown'}`,
+        studentName: student ? (student.nama_siswa || student.nama_lengkap) : 'Unknown',
         amount: Number(p.jumlah_pemasukkan),
+        tunggakan: tunggakanRaw > 0 ? tunggakanRaw : 0,
         date: p.tanggal_pemasukkan
       }
     }),
@@ -109,11 +160,14 @@ const recentLedger = computed(() => {
       id: `e-${e.id}`,
       type: 'expense',
       title: e.keterangan || 'Expense',
+      studentName: '-',
       amount: Number(e.jumlah_pengeluaran),
+      tunggakan: 0,
       date: e.tanggal_pengeluaran
     }))
   ]
-  return allLedger.sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 3)
+  allLedger.sort((a, b) => new Date(b.date) - new Date(a.date))
+  return isLedgerExpanded.value ? allLedger : allLedger.slice(0, 3)
 })
 
 const weeklyTotalRaw = computed(() => {
@@ -150,22 +204,8 @@ const chartData = computed(() => {
   }))
 })
 
-// 5. Payment Status Matrix
-const matrixData = computed(() => {
-  return students.value.map(student => {
-    const studentPayments = payments.value.filter(p => Number(p.data_student_id) === Number(student.id))
-    const paymentThisWeek = studentPayments.find(p => isThisWeek(p.tanggal_pemasukkan))
-    
-    return {
-      id: student.id,
-      name: student.nama_siswa || student.nama_lengkap,
-      avatar: (student.nama_siswa || student.nama_lengkap || 'U').substring(0, 2).toUpperCase(),
-      status: paymentThisWeek ? 'PAID' : 'UNPAID',
-      date: paymentThisWeek ? formatDate(paymentThisWeek.tanggal_pemasukkan) : '—',
-      amount: paymentThisWeek ? formatRupiah(paymentThisWeek.jumlah_pemasukkan) : 'Rp 0'
-    }
-  })
-})
+// ... existing code ...
+// We already replaced the computed properties above. We just need to remove matrixData and update the template.
 
 const fetchData = async () => {
   loading.value = true;
@@ -183,13 +223,13 @@ const fetchData = async () => {
   } catch (error) {
     console.error("Error fetching data:", error);
     // Dummy fallback for UI testing
-    students.value = Array.from({length: 36}, (_, i) => ({id: i+1, nama_siswa: `Student ${i+1}`}))
+    students.value = Array.from({length: 10}, (_, i) => ({id: i+1, nama_siswa: `Student ${i+1}`}))
     payments.value = [
       { id: 1, data_student_id: 1, tanggal_pemasukkan: new Date().toISOString(), jumlah_pemasukkan: 20000 },
       { id: 2, data_student_id: 2, tanggal_pemasukkan: new Date().toISOString(), jumlah_pemasukkan: 20000 }
     ]
     expenses.value = [
-      { id: 1, tanggal_pengeluaran: new Date(new Date().setDate(new Date().getDate()-1)).toISOString(), jumlah_pengeluaran: 45000, keterangan: 'Whiteboard Markers' }
+      { id: 1, tanggal_pengeluaran: new Date(new Date().setDate(new Date().getDate()-1)).toISOString(), jumlah_pengeluaran: 45000, keterangan: 'Spidol' }
     ]
   } finally {
     loading.value = false;
@@ -199,13 +239,6 @@ const fetchData = async () => {
 onMounted(() => {
   fetchData()
 })
-
-const getMonthWeekText = () => {
-  const d = new Date()
-  const month = d.toLocaleString('default', { month: 'long' })
-  const week = Math.ceil(d.getDate() / 7)
-  return `${month} Week ${week}`
-}
 </script>
 
 <template>
@@ -214,28 +247,34 @@ const getMonthWeekText = () => {
       :currentBalance="currentBalance"
       :balanceTrend="balanceTrend"
       :totalStudents="totalStudents"
-      :unpaidThisWeek="unpaidThisWeek"
+      :incomeThisMonth="incomeThisMonth"
+      :totalTunggakan="totalTunggakan"
     />
 
     <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
-      <FinancialChart 
-        :chartData="chartData"
-        :formatShortRupiah="formatShortRupiah"
-      />
+      <div :class="isLedgerExpanded ? 'xl:col-span-1' : 'xl:col-span-2'">
+        <FinancialChart 
+          :chartData="chartData"
+          :formatShortRupiah="formatShortRupiah"
+        />
+      </div>
 
-      <RecentLedger 
-        :recentLedger="recentLedger"
-        :formatDate="formatDate"
-        :formatShortRupiah="formatShortRupiah"
-        :formatRupiah="formatRupiah"
-        :weeklyTotalRaw="weeklyTotalRaw"
-      />
+      <div :class="isLedgerExpanded ? 'xl:col-span-2' : 'xl:col-span-1'">
+        <RecentLedger 
+          :recentLedger="recentLedger"
+          :formatDate="formatDate"
+          :formatShortRupiah="formatShortRupiah"
+          :formatRupiah="formatRupiah"
+          :weeklyTotalRaw="weeklyTotalRaw"
+          :isExpanded="isLedgerExpanded"
+          @toggle="toggleLedger"
+        />
+      </div>
     </div>
 
-    <PaymentMatrix 
-      :matrixData="matrixData"
-      :getMonthWeekText="getMonthWeekText"
-      :loading="loading"
-    />
+    <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+      <SiswaMenunggak :studentsMenunggak="studentsMenunggak" />
+      <QuickActions />
+    </div>
   </AdminLayout>
 </template>

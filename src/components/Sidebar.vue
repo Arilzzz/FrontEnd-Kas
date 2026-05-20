@@ -1,8 +1,11 @@
 <script setup>
+import { inject } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 const route = useRoute()
 const router = useRouter()
+
+const isSidebarOpen = inject('isSidebarOpen')
 
 const navItems = [
   { name: 'Dashboard', path: '/admin/dashboard', icon: 'M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z' },
@@ -20,7 +23,11 @@ function logout() {
 </script>
 
 <template>
-  <div class="w-64 bg-slate-50 min-h-screen border-r border-gray-200 flex flex-col justify-between hidden md:flex">
+  <div 
+    :class="isSidebarOpen ? 'w-64 translate-x-0' : 'w-0 -translate-x-full'"
+    class="bg-slate-50 min-h-screen border-r border-gray-200 flex flex-col justify-between hidden md:flex transition-all duration-300 overflow-hidden flex-shrink-0"
+  >
+    <div class="w-64 flex flex-col justify-between h-full">
     <div>
       <div class="flex items-center px-6 py-8">
         <img src="/Logo.png" alt="Kasku" class="h-10 w-10 mr-3" />
@@ -68,6 +75,7 @@ function logout() {
         </svg>
         Keluar
       </button>
+    </div>
     </div>
   </div>
 </template>

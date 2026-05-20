@@ -6,7 +6,7 @@ defineProps({
 </script>
 
 <template>
-  <div class="xl:col-span-2 bg-white rounded-3xl p-8 border border-gray-100 shadow-sm flex flex-col">
+  <div class="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm flex flex-col h-full">
     <div class="flex justify-between items-start mb-8">
       <div>
         <h2 class="text-xl font-bold text-gray-900">Financial Performance</h2>
@@ -20,7 +20,7 @@ defineProps({
 
     <div class="flex-1 flex items-end justify-between gap-2 md:gap-8 pt-10 pb-4">
       <div v-for="(data, i) in chartData" :key="i" class="flex flex-col items-center flex-1">
-        <div class="flex items-end justify-center gap-1.5 md:gap-3 w-full h-48 border-b border-gray-100 pb-4">
+        <div class="flex items-end justify-center gap-1.5 md:gap-3 w-full h-32 border-b border-gray-100 pb-4">
           <!-- Income Bar -->
           <div class="w-1/3 max-w-[40px] bg-green-700/40 rounded-t-sm transition-all duration-500 hover:bg-green-700 relative group" :style="{ height: data.incomeHeight }">
             <!-- Tooltip -->

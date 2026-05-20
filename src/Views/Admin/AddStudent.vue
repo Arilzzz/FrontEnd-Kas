@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AdminLayout from '../../components/AdminLayout.vue'
 import api from '../../services/api'
+import { onMounted, watch } from 'vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -19,7 +20,6 @@ const goBack = () => {
   router.push('/admin/datastudent')
 }
 
-import { onMounted, watch } from 'vue'
 
 const fetchStudents = async () => {
   try {
@@ -59,8 +59,6 @@ watch(mode, (newMode) => {
     studentForm.value.nama_siswa = ''
   }
 })
-
-
 
 const submitForm = async () => {
   if (!studentForm.value.nis || !studentForm.value.nama_siswa) return

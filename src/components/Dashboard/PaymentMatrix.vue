@@ -1,10 +1,34 @@
 <script setup>
-defineProps({
+import { ref, computed } from 'vue'
+
+const props = defineProps({
   matrixData: { type: Array, required: true },
   getMonthWeekText: { type: Function, required: true },
   loading: { type: Boolean, required: true },
   readonly: { type: Boolean, default: false }
 })
+
+const currentPage = ref(1)
+const itemsPerPage = 5
+
+const totalPages = computed(() => Math.ceil(props.matrixData.length / itemsPerPage))
+
+const paginatedData = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage
+  return props.matrixData.slice(start, start + itemsPerPage)
+})
+
+const setPage = (page) => {
+  currentPage.value = page
+}
+
+const prevPage = () => {
+  if (currentPage.value > 1) currentPage.value--
+}
+
+const nextPage = () => {
+  if (currentPage.value < totalPages.value) currentPage.value++
+}
 </script>
 
 <template>
@@ -34,7 +58,7 @@ defineProps({
         <tbody class="divide-y divide-gray-50">
           <tr v-if="loading"><td :colspan="readonly ? 4 : 5" class="px-8 py-8 text-center text-gray-500 font-medium">Loading...</td></tr>
           <tr v-else-if="matrixData.length === 0"><td :colspan="readonly ? 4 : 5" class="px-8 py-8 text-center text-gray-500 font-medium">No students found.</td></tr>
-          <tr v-for="student in matrixData.slice(0, 5)" :key="student.id" class="hover:bg-gray-50/50 transition-colors">
+          <tr v-for="student in paginatedData" :key="student.id" class="hover:bg-gray-50/50 transition-colors">
             <td class="px-8 py-5 whitespace-nowrap">
               <div class="flex items-center gap-4">
                 <div class="w-10 h-10 rounded-full bg-blue-50 text-blue-600 font-bold flex items-center justify-center text-sm border border-blue-100">
@@ -63,10 +87,27 @@ defineProps({
         </tbody>
       </table>
     </div>
-    <div class="p-6 text-center border-t border-gray-100">
-      <button class="px-6 py-2 bg-white border border-gray-200 text-gray-600 text-sm font-bold rounded-lg shadow-sm hover:bg-gray-50 transition-colors">
-        Load Full Student Registry
-      </button>
+    <div v-if="matrixData.length > itemsPerPage" class="p-6 flex items-center justify-between border-t border-gray-100">
+      <div class="text-sm text-gray-500 font-medium">
+        Menampilkan {{ (currentPage - 1) * itemsPerPage + 1 }} sampai {{ Math.min(currentPage * itemsPerPage, matrixData.length) }} dari {{ matrixData.length }} data
+      </div>
+      <div class="flex items-center gap-1.5">
+        <button @click="prevPage" :disabled="currentPage === 1" class="px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-bold transition-colors">
+          Prev
+        </button>
+        <button 
+          v-for="page in totalPages" 
+          :key="page"
+          @click="setPage(page)"
+          class="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold transition-colors"
+          :class="currentPage === page ? 'bg-blue-600 text-white shadow-sm' : 'border border-gray-200 text-gray-600 hover:bg-gray-50'"
+        >
+          {{ page }}
+        </button>
+        <button @click="nextPage" :disabled="currentPage === totalPages" class="px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-bold transition-colors">
+          Next
+        </button>
+      </div>
     </div>
   </div>
 </template>

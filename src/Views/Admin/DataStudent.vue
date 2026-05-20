@@ -105,11 +105,25 @@ const enrichedStudents = computed(() => {
 })
 
 const filteredStudents = computed(() => {
-  if (!searchQuery.value) return enrichedStudents.value;
-  const q = searchQuery.value.toLowerCase();
-  return enrichedStudents.value.filter(s => 
-    s.name.toLowerCase().includes(q) || s.nisn.toLowerCase().includes(q)
-  );
+  let result = enrichedStudents.value;
+  if (searchQuery.value) {
+    const q = searchQuery.value.toLowerCase();
+    result = result.filter(s => 
+      s.name.toLowerCase().includes(q) || s.nisn.toLowerCase().includes(q)
+    );
+  }
+  
+  return [...result].sort((a, b) => {
+    // Sort by status: Lunas comes first
+    if (a.status === 'Lunas' && b.status !== 'Lunas') return -1;
+    if (a.status !== 'Lunas' && b.status === 'Lunas') return 1;
+    
+    // Then sort by NISN ascending
+    if (a.nisn < b.nisn) return -1;
+    if (a.nisn > b.nisn) return 1;
+    
+    return 0;
+  });
 })
 
 const lunasCount = computed(() => filteredStudents.value.filter(s => s.status === 'Lunas').length)
@@ -185,8 +199,8 @@ onMounted(() => {
   fetchData()
 })
 
-const navigateToAddStudent = () => {
-  router.push('/admin/addstudent')
+const navigateToAddPayment = () => {
+  router.push('/admin/payment')
 }
 
 const handleEdit = (id) => {
@@ -212,12 +226,7 @@ const handleDelete = async (id) => {
         <p class="text-gray-500 mt-1">Kelola database kas kelas dan pantau riwayat pembayaran per siswa.</p>
       </div>
       <div class="flex items-center gap-3">
-        <div class="flex bg-white rounded-lg border border-gray-200 p-1">
-          <button class="px-4 py-1.5 text-sm font-medium bg-gray-50 text-gray-800 rounded-md shadow-sm border border-gray-100">Tabel</button>
-          <button class="px-4 py-1.5 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors">Analitik</button>
-        </div>
-        <button class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-medium shadow-sm shadow-blue-200 transition-all active:scale-95">
-          <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+        <button type="button" @click="navigateToAddPayment" class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-medium shadow-sm shadow-blue-200 transition-all active:scale-95">
           Transaksi Baru
         </button>
       </div>
@@ -228,7 +237,7 @@ const handleDelete = async (id) => {
       :outstanding="outstanding"
       :totalStudents="totalStudents"
       :treasuryBalance="treasuryBalance"
-    />
+    />  
 
     <!-- Search Bar -->
     <div class="mb-6 relative max-w-md">

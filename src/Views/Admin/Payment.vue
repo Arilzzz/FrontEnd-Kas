@@ -115,7 +115,7 @@ const savePayment = async () => {
   try {
     const payload = {
       data_student_id: selectedStudentId.value,
-      jumlah_pemasukkan: amount.value,
+      jumlah_pemasukkan: Math.round(Number(amount.value)),
       tanggal_pemasukkan: transactionDate.value
     }
     
@@ -139,6 +139,22 @@ const savePayment = async () => {
     isSubmitting.value = false
   }
 }
+
+const editPayment = (id) => {
+  router.push({ path: '/admin/editpayment', query: { id } })
+}
+
+const deletePayment = async (id) => {
+  if (!confirm('Hapus pembayaran ini?')) return
+  try {
+    await api.delete(`/pembayaran/${id}`)
+    const paymentsRes = await api.get('/pembayaran')
+    payments.value = paymentsRes.data.Data || paymentsRes.data || []
+  } catch (error) {
+    console.error('Failed to delete payment:', error)
+    alert('Gagal menghapus pembayaran.')
+  }
+}
 </script>
 
 <template>
@@ -150,7 +166,18 @@ const savePayment = async () => {
           Kembali ke Dashboard
         </router-link>
         <h1 class="text-4xl font-black text-gray-900 tracking-tight">Catat Pembayaran</h1>
-        <p class="text-gray-500 font-medium mt-2">Kelola iuran siswa dengan presisi akademik.</p>
+        <p class="text-gray-500 font-medium mt-2 mb-6">Kelola iuran siswa dengan presisi akademik.</p>
+
+        <!-- Mode Toggle -->
+        <div class="flex bg-gray-200 rounded-full p-1 max-w-fit relative overflow-hidden">
+          <div class="absolute inset-y-1 left-1 w-[calc(50%-4px)] bg-white rounded-full shadow-sm transition-transform duration-300 ease-in-out translate-x-0"></div>
+          <button class="relative z-10 px-6 py-2 rounded-full text-sm font-bold text-gray-900 transition-colors w-32 cursor-default">
+            Catat Baru
+          </button>
+          <button @click="router.push('/admin/editpayment')" class="relative z-10 px-6 py-2 rounded-full text-sm font-bold text-gray-500 hover:text-gray-700 transition-colors w-32">
+            Edit Data
+          </button>
+        </div>
       </div>
       
       <!-- Treasury Balance Card -->
@@ -192,7 +219,7 @@ const savePayment = async () => {
                 <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                   <span class="text-gray-500 font-bold">Rp</span>
                 </div>
-                <input v-model="amount" type="number" placeholder="0.00" class="block w-full pl-12 pr-4 py-3.5 bg-gray-200/50 border-transparent rounded-xl text-gray-900 text-sm font-medium focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all" />
+                <input v-model="amount" type="number" @wheel.prevent placeholder="0.00" class="block w-full pl-12 pr-4 py-3.5 bg-gray-200/50 border-transparent rounded-xl text-gray-900 text-sm font-medium focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all" />
               </div>
             </div>
             <div>
@@ -236,13 +263,15 @@ const savePayment = async () => {
 
       <!-- Right: Dynamic Cards -->
       <div class="lg:col-span-5">
-        <StudentPaymentProfile 
-          :selectedStudent="selectedStudent"
-          :totalPaid="totalPaid"
-          :outstanding="outstanding"
-          :formatRupiah="formatRupiah"
-          :recentHistory="recentHistory"
-        />
+          <StudentPaymentProfile 
+            :selectedStudent="selectedStudent"
+            :totalPaid="totalPaid"
+            :outstanding="outstanding"
+            :formatRupiah="formatRupiah"
+            :recentHistory="recentHistory"
+            @edit="editPayment"
+            @delete="deletePayment"
+          />
       </div>
     </div>
   </AdminLayout>

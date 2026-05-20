@@ -14,7 +14,7 @@ import ForgotPassword from '../Views/Admin/ForgotPassword.vue'
 import ResetPassword from '../Views/Admin/ResetPassword.vue'
 
 const routes = [
-    {
+    {   
         path: '/',
         redirect: '/login'  
     },

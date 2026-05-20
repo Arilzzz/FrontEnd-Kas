@@ -1,6 +1,16 @@
 <script setup>
+import { ref, provide } from 'vue'
 import StudentSidebar from './StudentSidebar.vue'
 import Topbar from './Topbar.vue'
+
+const isSidebarOpen = ref(true)
+
+const toggleSidebar = () => {
+  isSidebarOpen.value = !isSidebarOpen.value
+}
+
+provide('isSidebarOpen', isSidebarOpen)
+provide('toggleSidebar', toggleSidebar)
 </script>
 
 <template>

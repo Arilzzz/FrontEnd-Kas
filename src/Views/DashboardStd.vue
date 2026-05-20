@@ -91,6 +91,25 @@ const unpaidThisWeek = computed(() => {
   return students.value.filter(s => !paidThisWeekIds.includes(Number(s.id))).length
 })
 
+const incomeThisMonthRaw = computed(() => {
+  const currentMonth = new Date().getMonth();
+  const currentYear = new Date().getFullYear();
+  return payments.value
+    .filter(p => {
+      const d = new Date(p.tanggal_pemasukkan);
+      return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+    })
+    .reduce((sum, p) => sum + Number(p.jumlah_pemasukkan), 0);
+})
+const incomeThisMonth = computed(() => formatRupiah(incomeThisMonthRaw.value))
+
+const totalTunggakanRaw = computed(() => {
+  const targetTotal = students.value.length * 4 * WEEKLY_DUES;
+  const diff = targetTotal - incomeThisMonthRaw.value;
+  return diff > 0 ? diff : 0;
+})
+const totalTunggakan = computed(() => formatRupiah(totalTunggakanRaw.value))
+
 // 3. Recent Ledger
 const recentLedger = computed(() => {
   const allLedger = [
@@ -216,7 +235,8 @@ const getMonthWeekText = () => {
       :currentBalance="currentBalance"
       :balanceTrend="balanceTrend"
       :totalStudents="totalStudents"
-      :unpaidThisWeek="unpaidThisWeek"
+      :incomeThisMonth="incomeThisMonth"
+      :totalTunggakan="totalTunggakan"
     />
 
     <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">

@@ -74,7 +74,7 @@ const submitExpenditure = async () => {
   try {
     const formData = new FormData()
     formData.append('tanggal_pengeluaran', transactionDate.value)
-    formData.append('jumlah_pengeluaran', amount.value)
+    formData.append('jumlah_pengeluaran', Math.round(Number(amount.value)))
     formData.append('keterangan', description.value)
     formData.append('bukti_foto', selectedFile.value)
     formData.append('user_id', 1) // Just hardcoded for now, or get from auth
@@ -98,6 +98,24 @@ const submitExpenditure = async () => {
     }
   } finally {
     isSubmitting.value = false
+  }
+}
+
+import { useRouter } from 'vue-router'
+const router = useRouter()
+
+const editExpenditure = (id) => {
+  router.push({ path: '/admin/editexpenditure', query: { id } })
+}
+
+const deleteExpenditure = async (id) => {
+  if (!confirm('Hapus data pengeluaran ini?')) return
+  try {
+    await api.delete(`/pengeluaran/${id}`)
+    await fetchExpenditures()
+  } catch (error) {
+    console.error('Failed to delete:', error)
+    alert('Gagal menghapus pengeluaran.')
   }
 }
 
@@ -128,7 +146,18 @@ const recentProofs = computed(() => {
       <div class="flex justify-between items-end">
         <div>
           <h1 class="text-4xl font-black text-gray-900 tracking-tight mb-2">Pencatatan Pengeluaran</h1>
-          <p class="text-gray-500 font-medium max-w-lg">Jaga transparansi kas dengan bukti transaksi dan log pengeluaran yang terverifikasi.</p>
+          <p class="text-gray-500 font-medium max-w-lg mb-6">Jaga transparansi kas dengan bukti transaksi dan log pengeluaran yang terverifikasi.</p>
+
+          <!-- Mode Toggle -->
+          <div class="flex bg-gray-200 rounded-full p-1 max-w-fit relative overflow-hidden">
+            <div class="absolute inset-y-1 left-1 w-[calc(50%-4px)] bg-white rounded-full shadow-sm transition-transform duration-300 ease-in-out translate-x-0"></div>
+            <button class="relative z-10 px-6 py-2 rounded-full text-sm font-bold text-gray-900 transition-colors w-32 cursor-default">
+              Catat Baru
+            </button>
+            <button @click="router.push('/admin/editexpenditure')" class="relative z-10 px-6 py-2 rounded-full text-sm font-bold text-gray-500 hover:text-gray-700 transition-colors w-32">
+              Edit Data
+            </button>
+          </div>
         </div>
         
         <!-- Saldo Kas -->
@@ -166,7 +195,7 @@ const recentProofs = computed(() => {
                   <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                     <span class="text-gray-900 font-bold">Rp</span>
                   </div>
-                  <input v-model="amount" type="number" required class="w-full bg-gray-100/80 border-transparent focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-xl pl-12 pr-4 py-3.5 text-sm font-medium transition-all" placeholder="0" />
+                  <input v-model="amount" type="number" @wheel.prevent required class="w-full bg-gray-100/80 border-transparent focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-xl pl-12 pr-4 py-3.5 text-sm font-medium transition-all" placeholder="0" />
                 </div>
               </div>
               <div>
@@ -315,10 +344,10 @@ const recentProofs = computed(() => {
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
                 <div class="flex items-center justify-center gap-2">
-                  <button class="text-gray-400 hover:text-blue-600 transition-colors p-1.5 rounded hover:bg-blue-50">
+                  <button @click="editExpenditure(exp.id)" class="text-gray-400 hover:text-blue-600 transition-colors p-1.5 rounded hover:bg-blue-50">
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
                   </button>
-                  <button class="text-gray-400 hover:text-red-600 transition-colors p-1.5 rounded hover:bg-red-50">
+                  <button @click="deleteExpenditure(exp.id)" class="text-gray-400 hover:text-red-600 transition-colors p-1.5 rounded hover:bg-red-50">
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                   </button>
                 </div>

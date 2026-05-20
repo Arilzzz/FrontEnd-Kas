@@ -1,5 +1,6 @@
 <script setup>
 import { useRoute, useRouter } from 'vue-router'
+import { inject } from 'vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -14,10 +15,16 @@ function logout() {
   localStorage.removeItem('user_data');
   router.push('/login');
 }
+
+const isSidebarOpen = inject('isSidebarOpen')
 </script>
 
 <template>
-  <div class="w-64 bg-slate-50 min-h-screen border-r border-gray-200 flex flex-col justify-between hidden md:flex">
+  <div 
+    :class="isSidebarOpen ? 'w-64 translate-x-0' : 'w-0 -translate-x-full'"
+    class="bg-slate-50 min-h-screen border-r border-gray-200 flex flex-col justify-between hidden md:flex transition-all duration-300 overflow-hidden flex-shrink-0"
+  >
+    <div class="w-64 flex flex-col justify-between h-full">
     <div>
       <div class="flex items-center px-6 py-8">
         <img src="/Logo.png" alt="Kasku" class="h-10 w-10 mr-3" />
@@ -65,6 +72,7 @@ function logout() {
         </svg>
         Keluar
       </button>
+    </div>
     </div>
   </div>
 </template>
