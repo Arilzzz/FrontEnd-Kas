@@ -1,9 +1,8 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AdminLayout from '../../components/AdminLayout.vue'
 import api from '../../services/api'
-import { onMounted, watch } from 'vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -16,10 +15,17 @@ const students = ref([])
 const mode = ref('add') // 'add' or 'update'
 const selectedStudentId = ref('')
 
+// CSV Import state
+const showImportModal = ref(false)
+const importFile = ref(null)
+const importMode = ref('replace')
+const importLoading = ref(false)
+const importResult = ref(null)
+const importFileName = ref('')
+
 const goBack = () => {
   router.push('/admin/datastudent')
 }
-
 
 const fetchStudents = async () => {
   try {
@@ -103,14 +109,82 @@ const submitForm = async () => {
   }
 }
 
-// CSV Upload logic stub
-const handleFileUpload = (event) => {
+// CSV Upload logic
+const openImportModal = () => {
+  importResult.value = null
+  showImportModal.value = true
+}
+
+const closeImportModal = () => {
+  showImportModal.value = false
+  importResult.value = null
+  importFile.value = null
+  importFileName.value = ''
+}
+
+const handleFileSelect = (event) => {
   const file = event.target.files[0]
-  if (file && file.type === "text/csv") {
-    alert(`File ${file.name} dipilih. Logika upload bisa ditambahkan di sini.`)
-  } else {
-    alert("Silakan unggah file CSV yang valid.")
+  if (file) {
+    importFile.value = file
+    importFileName.value = file.name
+    openImportModal() // Open modal when file selected
   }
+}
+
+const executeImport = async () => {
+  if (!importFile.value) return
+
+  importLoading.value = true
+  importResult.value = null
+
+  try {
+    const formData = new FormData()
+    formData.append('file', importFile.value)
+    formData.append('mode', importMode.value)
+
+    const response = await api.post('/student/import', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+
+    importResult.value = {
+      success: true,
+      message: response.data.Message,
+      imported: response.data.imported,
+      skipped: response.data.skipped || 0,
+      errors: response.data.errors || []
+    }
+
+    // Add to recently added
+    recentlyAdded.value.unshift({
+      id: Date.now(),
+      name: `Import Massal (${response.data.imported} siswa)`,
+      nis: '-',
+      time: 'Baru saja diimport'
+    })
+
+    // Refresh student list
+    await fetchStudents()
+  } catch (error) {
+    const errMsg = error.response?.data?.Message || error.response?.data?.errors?.file?.[0] || 'Gagal mengimport file CSV'
+    importResult.value = {
+      success: false,
+      message: errMsg,
+      errors: error.response?.data?.errors || []
+    }
+  } finally {
+    importLoading.value = false
+  }
+}
+
+const downloadTemplate = () => {
+  const csvContent = "data:text/csv;charset=utf-8,nis,nama_siswa\n2024001,Alexander Graham\n2024002,Jane Doe"
+  const encodedUri = encodeURI(csvContent)
+  const link = document.createElement("a")
+  link.setAttribute("href", encodedUri)
+  link.setAttribute("download", "template_siswa.csv")
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
 }
 </script>
 
@@ -128,7 +202,7 @@ const handleFileUpload = (event) => {
         <div class="bg-gray-100 rounded-full px-4 py-1.5 flex items-center gap-3">
           <div class="text-right">
             <p class="text-xs font-bold text-gray-900 leading-none">Kelas 12-A</p>
-            <p class="text-[10px] font-semibold text-gray-500 mt-0.5">Total Siswa</p>
+            <p class="text-[10px] font-semibold text-gray-500 mt-0.5">Database Siswa</p>
           </div>
           <img class="w-8 h-8 rounded-full shadow-sm" src="/Logo.png" alt="Admin" />
         </div>
@@ -224,17 +298,18 @@ const handleFileUpload = (event) => {
         </div>
         <p class="text-gray-600 text-sm font-medium mb-8">Punya banyak data siswa? Lewati cara manual dan unggah file CSV untuk mengimpor seluruh data sekaligus.</p>
         
-        <div class="border-2 border-dashed border-gray-300 rounded-2xl p-10 flex flex-col items-center justify-center text-center mb-6 bg-white transition-all hover:border-blue-400 hover:bg-blue-50/30 group relative">
-          <input type="file" accept=".csv" @change="handleFileUpload" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+        <div class="border-2 border-dashed border-gray-300 rounded-2xl p-10 flex flex-col items-center justify-center text-center mb-6 bg-white transition-all hover:border-blue-400 hover:bg-blue-50/30 group relative"
+             :class="importFile ? 'border-blue-400 bg-blue-50/30' : ''">
+          <input type="file" accept=".csv" @change="handleFileSelect" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
           <div class="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
             <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
           </div>
-          <h3 class="font-bold text-gray-900 text-lg mb-1">Tarik CSV ke sini</h3>
-          <p class="text-gray-500 text-sm font-medium mb-4">atau klik untuk mencari dari perangkat</p>
+          <h3 class="font-bold text-gray-900 text-lg mb-1">{{ importFileName || 'Tarik CSV ke sini' }}</h3>
+          <p class="text-gray-500 text-sm font-medium mb-4">{{ importFile ? 'Klik atau tarik file lain untuk mengganti' : 'atau klik untuk mencari dari perangkat' }}</p>
           <span class="bg-gray-200 text-gray-600 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider">Maksimal: 5MB</span>
         </div>
 
-        <button class="w-full py-3.5 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold rounded-xl transition-colors flex items-center justify-center gap-2 mb-4">
+        <button @click="downloadTemplate" class="w-full py-3.5 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold rounded-xl transition-colors flex items-center justify-center gap-2 mb-4">
           <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
           Unduh Template CSV
         </button>
@@ -249,5 +324,76 @@ const handleFileUpload = (event) => {
 
       </div>
     </div>
+
+    <!-- CSV Import Modal (Adapted from DataStudent.vue) -->
+    <Teleport to="body">
+      <div v-if="showImportModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="closeImportModal"></div>
+        <div class="relative bg-white rounded-3xl shadow-2xl w-full max-w-lg p-8 z-10">
+          <div class="flex items-center justify-between mb-6">
+            <h2 class="text-xl font-bold text-gray-900">Konfirmasi Import Data</h2>
+            <button @click="closeImportModal" class="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </div>
+
+          <div class="mb-6 p-4 bg-blue-50 rounded-2xl flex items-center gap-4">
+            <svg class="w-8 h-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            <div class="text-left">
+              <p class="text-sm font-bold text-gray-900">{{ importFileName }}</p>
+              <p class="text-xs text-gray-500">{{ (importFile?.size / 1024).toFixed(1) }} KB</p>
+            </div>
+          </div>
+
+          <div class="mb-6">
+            <p class="text-sm font-bold text-gray-700 mb-3">Mode Import:</p>
+            <div class="grid grid-cols-2 gap-3">
+              <label class="relative cursor-pointer">
+                <input type="radio" v-model="importMode" value="replace" class="peer sr-only" />
+                <div class="border-2 rounded-xl p-4 transition-all peer-checked:border-blue-500 peer-checked:bg-blue-50 border-gray-200">
+                  <span class="text-sm font-bold text-gray-900 block mb-1">Ganti</span>
+                  <p class="text-[10px] text-gray-500">Hapus data lama</p>
+                </div>
+              </label>
+              <label class="relative cursor-pointer">
+                <input type="radio" v-model="importMode" value="append" class="peer sr-only" />
+                <div class="border-2 rounded-xl p-4 transition-all peer-checked:border-blue-500 peer-checked:bg-blue-50 border-gray-200">
+                   <span class="text-sm font-bold text-gray-900 block mb-1">Tambah</span>
+                   <p class="text-[10px] text-gray-500">Keep data lama</p>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div v-if="importMode === 'replace'" class="mb-6 bg-amber-50 border border-amber-200 rounded-xl p-4 flex gap-3">
+             <svg class="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
+             <p class="text-xs text-amber-700 font-medium">Mode ganti akan menghapus seluruh data siswa dan riwayat pembayaran yang ada!</p>
+          </div>
+
+          <div v-if="importResult" class="mb-6 rounded-xl p-4 flex gap-3 text-sm"
+               :class="importResult.success ? 'bg-green-50 border border-green-200 text-green-800' : 'bg-red-50 border border-red-200 text-red-800'">
+            <div>
+              <p class="font-bold">{{ importResult.message }}</p>
+              <p v-if="importResult.success" class="mt-1 text-xs text-green-700">✓ {{ importResult.imported }} data diimport</p>
+            </div>
+          </div>
+
+          <div class="flex justify-end gap-3">
+            <button @click="closeImportModal" class="px-5 py-2.5 rounded-xl text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors">
+              {{ importResult?.success ? 'Tutup' : 'Batal' }}
+            </button>
+            <button 
+              v-if="!importResult?.success"
+              @click="executeImport" 
+              :disabled="!importFile || importLoading"
+              class="px-6 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 transition-all shadow-sm flex items-center gap-2"
+            >
+              <svg v-if="importLoading" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+              {{ importLoading ? 'Mengimport...' : 'Import Sekarang' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </AdminLayout>
 </template>

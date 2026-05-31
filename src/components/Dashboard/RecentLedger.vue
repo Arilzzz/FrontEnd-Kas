@@ -5,22 +5,60 @@ defineProps({
   formatShortRupiah: { type: Function, required: true },
   formatRupiah: { type: Function, required: true },
   weeklyTotalRaw: { type: Number, required: true },
-  isExpanded: { type: Boolean, default: false }
+  isExpanded: { type: Boolean, default: false },
+  filterMonth: { type: String, default: "" },
+  filterWeek: { type: String, default: "" }
 })
-const emit = defineEmits(['toggle'])
+const emit = defineEmits(['toggle', 'update:filterMonth', 'update:filterWeek'])
 </script>
 
 <template>
   <div class="bg-slate-50/50 rounded-3xl p-5 border border-gray-100 shadow-sm flex flex-col h-full transition-all duration-300">
-    <div class="flex justify-between items-center mb-6">
+    <div class="flex justify-between items-center mb-4">
       <h2 class="text-lg font-bold text-gray-900">Aktivitas Terbaru</h2>
       <button @click="emit('toggle')" class="text-xs font-bold text-blue-600 hover:text-blue-800">
         {{ isExpanded ? 'Tutup' : 'Lihat Semua' }}
       </button>
     </div>
 
+    <!-- Filters -->
+    <div class="grid grid-cols-2 gap-2 mb-4">
+      <div class="relative">
+        <select :value="filterMonth" @change="emit('update:filterMonth', $event.target.value)" class="w-full bg-white border border-gray-200 rounded-xl pl-3 pr-8 py-2.5 text-xs font-bold text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-100 appearance-none cursor-pointer transition-all">
+          <option value="">Semua Bulan</option>
+          <option value="0">Januari</option>
+          <option value="1">Februari</option>
+          <option value="2">Maret</option>
+          <option value="3">April</option>
+          <option value="4">Mei</option>
+          <option value="5">Juni</option>
+          <option value="6">Juli</option>
+          <option value="7">Agustus</option>
+          <option value="8">September</option>
+          <option value="9">Oktober</option>
+          <option value="10">November</option>
+          <option value="11">Desember</option>
+        </select>
+        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-400">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
+        </div>
+      </div>
+      <div class="relative">
+        <select :value="filterWeek" @change="emit('update:filterWeek', $event.target.value)" class="w-full bg-white border border-gray-200 rounded-xl pl-3 pr-8 py-2.5 text-xs font-bold text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-100 appearance-none cursor-pointer transition-all">
+          <option value="">Semua Minggu</option>
+          <option value="Minggu 1">Minggu 1</option>
+          <option value="Minggu 2">Minggu 2</option>
+          <option value="Minggu 3">Minggu 3</option>
+          <option value="Minggu 4">Minggu 4</option>
+        </select>
+        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-400">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
+        </div>
+      </div>
+    </div>
+
     <div class="flex flex-col gap-4 flex-1" :class="isExpanded ? 'max-h-96 overflow-y-auto pr-2' : ''">
-      <div v-if="recentLedger.length === 0" class="text-center text-sm text-gray-500 py-4">Belum ada aktivitas</div>
+      <div v-if="recentLedger.length === 0" class="text-center text-sm text-gray-500 py-6 font-medium">Tidak ada aktivitas pada periode ini</div>
       <div v-for="item in recentLedger" :key="item.id" class="bg-white p-4 rounded-2xl border border-gray-100 flex flex-col md:flex-row md:items-center justify-between shadow-sm gap-4">
         <div class="flex items-start gap-3">
           <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 mt-1 md:mt-0" :class="item.type === 'income' ? 'bg-green-50 text-green-600 border border-green-100' : 'bg-red-50 text-red-600 border border-red-100'">

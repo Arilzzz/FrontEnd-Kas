@@ -5,6 +5,7 @@ import DashboardSummaryCards from '../components/Dashboard/DashboardSummaryCards
 import FinancialChart from '../components/Dashboard/FinancialChart.vue'
 import RecentLedger from '../components/Dashboard/RecentLedger.vue'
 import PaymentMatrix from '../components/Dashboard/PaymentMatrix.vue'
+import ClassInfo from '../components/Dashboard/ClassInfo.vue'
 import api from '../services/api'
 
 // Logic exactly like Dashboard.vue but simplified
@@ -23,12 +24,35 @@ const formatShortRupiah = (num) => {
   return `Rp ${num}`
 }
 
-const formatDate = (dateString) => {
-  const d = new Date(dateString)
-  if (isToday(d)) return `Today, ${d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`
-  if (isYesterday(d)) return `Yesterday`
-  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+const filterMonth = ref('')
+const filterWeek = ref('')
+const isLedgerExpanded = ref(false)
+const toggleLedger = () => {
+  isLedgerExpanded.value = !isLedgerExpanded.value
 }
+
+const parseLocalDate = (dateString) => {
+  if (!dateString) return new Date();
+  if (dateString.includes('T')) {
+    return new Date(dateString);
+  }
+  const parts = dateString.split('-');
+  if (parts.length === 3) {
+    return new Date(parts[0], parts[1] - 1, parts[2]);
+  }
+  return new Date(dateString);
+}
+
+const formatDate = (dateString) => {
+  const d = parseLocalDate(dateString);
+  if (isToday(d)) return 'Hari Ini';
+  if (isYesterday(d)) return 'Kemarin';
+  return d.toLocaleDateString("id-ID", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+};
 
 // Date Helpers
 const isToday = (d) => {
@@ -110,9 +134,30 @@ const totalTunggakanRaw = computed(() => {
 })
 const totalTunggakan = computed(() => formatRupiah(totalTunggakanRaw.value))
 
+const totalExpenseThisMonthRaw = computed(() => {
+  const currentMonth = new Date().getMonth();
+  const currentYear = new Date().getFullYear();
+  return expenses.value
+    .filter(e => {
+      const d = new Date(e.tanggal_pengeluaran);
+      return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+    })
+    .reduce((sum, e) => sum + Number(e.jumlah_pengeluaran), 0);
+})
+const totalExpenseThisMonth = computed(() => formatRupiah(totalExpenseThisMonthRaw.value))
+
+// Collection rate for ClassInfo
+const collectionRate = computed(() => {
+  if (totalStudents.value === 0) return '0%';
+  const targetTotal = totalStudents.value * 4 * WEEKLY_DUES;
+  if (targetTotal === 0) return '100%';
+  const rate = Math.round((incomeThisMonthRaw.value / targetTotal) * 100);
+  return `${rate > 100 ? 100 : rate}%`;
+})
+
 // 3. Recent Ledger
 const recentLedger = computed(() => {
-  const allLedger = [
+  let allLedger = [
     ...payments.value.map(p => {
       const student = students.value.find(s => Number(s.id) === Number(p.data_student_id))
       return {
@@ -131,7 +176,28 @@ const recentLedger = computed(() => {
       date: e.tanggal_pengeluaran
     }))
   ]
-  return allLedger.sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 3)
+
+  // Apply filters
+  if (filterMonth.value !== "") {
+    allLedger = allLedger.filter((item) => {
+      return parseLocalDate(item.date).getMonth() === Number(filterMonth.value);
+    });
+  }
+  if (filterWeek.value !== "") {
+    allLedger = allLedger.filter((item) => {
+      const weekMap = {
+        'w1': 'Minggu 1',
+        'w2': 'Minggu 2',
+        'w3': 'Minggu 3',
+        'w4': 'Minggu 4'
+      }
+      const itemWeek = getWeekOfMonth(item.date);
+      return weekMap[itemWeek] === filterWeek.value;
+    });
+  }
+
+  allLedger.sort((a, b) => new Date(b.date) - new Date(a.date))
+  return isLedgerExpanded.value ? allLedger : allLedger.slice(0, 3)
 })
 
 const weeklyTotalRaw = computed(() => {
@@ -212,8 +278,61 @@ const fetchData = async () => {
   }
 }
 
+const loggedInUser = ref(null)
+
+// Personal Contribution status (e.g. Weeks 1, 2, 3, 4 of the current month)
+const studentPaymentsFiltered = computed(() => {
+  if (!loggedInUser.value) return []
+  return payments.value.filter(p => Number(p.data_student_id) === Number(loggedInUser.value.id))
+})
+
+const myWeeksPaid = computed(() => {
+  const currentMonth = new Date().getMonth()
+  const currentYear = new Date().getFullYear()
+  
+  const thisMonthPayments = studentPaymentsFiltered.value.filter(p => {
+    const d = new Date(p.tanggal_pemasukkan)
+    return d.getMonth() === currentMonth && d.getFullYear() === currentYear
+  })
+  
+  const paidWeeks = []
+  thisMonthPayments.forEach(p => {
+    const week = getWeekOfMonth(p.tanggal_pemasukkan)
+    if (!paidWeeks.includes(week)) {
+      paidWeeks.push(week)
+    }
+  })
+  
+  return paidWeeks
+})
+
+const myTotalPaidFormatted = computed(() => {
+  const total = studentPaymentsFiltered.value.reduce((sum, p) => sum + Number(p.jumlah_pemasukkan), 0)
+  return formatRupiah(total)
+})
+
+const myOutstandingFormatted = computed(() => {
+  const target = 4 * WEEKLY_DUES
+  const currentMonth = new Date().getMonth()
+  const currentYear = new Date().getFullYear()
+  
+  const paidThisMonth = studentPaymentsFiltered.value
+    .filter(p => {
+      const d = new Date(p.tanggal_pemasukkan)
+      return d.getMonth() === currentMonth && d.getFullYear() === currentYear
+    })
+    .reduce((sum, p) => sum + Number(p.jumlah_pemasukkan), 0)
+    
+  const diff = target - paidThisMonth
+  return formatRupiah(diff > 0 ? diff : 0)
+})
+
 onMounted(() => {
   fetchData()
+  const data = localStorage.getItem('user_data')
+  if (data) {
+    loggedInUser.value = JSON.parse(data)
+  }
 })
 
 const getMonthWeekText = () => {
@@ -227,8 +346,8 @@ const getMonthWeekText = () => {
 <template>
   <StudentLayout>
     <div class="mb-8">
-      <h1 class="text-3xl font-bold text-gray-900 tracking-tight">Class Financial Dashboard</h1>
-      <p class="text-gray-500 mt-1">View the transparent financial performance of our class treasury.</p>
+      <h1 class="text-3xl font-bold text-gray-900 tracking-tight">Dashboard Keuangan Kelas</h1>
+      <p class="text-gray-500 mt-1">Pantau pemasukan, pengeluaran, dan saldo kas kelas secara transparan dan akurat.</p>
     </div>
 
     <DashboardSummaryCards 
@@ -237,28 +356,95 @@ const getMonthWeekText = () => {
       :totalStudents="totalStudents"
       :incomeThisMonth="incomeThisMonth"
       :totalTunggakan="totalTunggakan"
+      :totalExpense="totalExpenseThisMonth"
     />
 
     <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
-      <FinancialChart 
-        :chartData="chartData"
-        :formatShortRupiah="formatShortRupiah"
-      />
+      <div :class="isLedgerExpanded ? 'xl:col-span-1' : 'xl:col-span-2'">
+        <FinancialChart 
+          :chartData="chartData"
+          :formatShortRupiah="formatShortRupiah"
+        />
+      </div>
 
-      <RecentLedger 
-        :recentLedger="recentLedger"
-        :formatDate="formatDate"
-        :formatShortRupiah="formatShortRupiah"
-        :formatRupiah="formatRupiah"
-        :weeklyTotalRaw="weeklyTotalRaw"
+      <div :class="isLedgerExpanded ? 'xl:col-span-2' : 'xl:col-span-1'" class="flex flex-col gap-6">
+        <RecentLedger 
+          :recentLedger="recentLedger"
+          :formatDate="formatDate"
+          :formatShortRupiah="formatShortRupiah"
+          :formatRupiah="formatRupiah"
+          :weeklyTotalRaw="weeklyTotalRaw"
+          :isExpanded="isLedgerExpanded"
+          v-model:filterMonth="filterMonth"
+          v-model:filterWeek="filterWeek"
+          @toggle="toggleLedger"
+        />
+
+        <!-- Personal Student Payment Status Card -->
+        <div v-if="loggedInUser && !isLedgerExpanded" class="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm flex flex-col justify-between">
+          <div class="mb-4">
+            <div class="flex items-center gap-2.5">
+              <span class="text-xl">👋</span>
+              <div>
+                <h3 class="text-sm font-black text-gray-900 leading-none">Status Kas Kamu</h3>
+                <p class="text-[11px] font-semibold text-gray-500 mt-1">{{ loggedInUser.nama_siswa || loggedInUser.nama_lengkap }} (NIS: {{ loggedInUser.nis }})</p>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Weekly Indicators -->
+          <div class="bg-gray-50 rounded-2xl p-4 mb-4 border border-gray-100/50">
+            <p class="text-[10px] font-bold text-gray-500 mb-3 uppercase tracking-wider text-center">Progres Kas Bulan Ini</p>
+            <div class="flex justify-between items-center px-2">
+              <div v-for="(weekName, weekKey) in { 'w1': 'Minggu 1', 'w2': 'Minggu 2', 'w3': 'Minggu 3', 'w4': 'Minggu 4' }" :key="weekKey" class="flex flex-col items-center gap-1.5">
+                <div class="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold transition-all shadow-sm"
+                     :class="myWeeksPaid.includes(weekKey) ? 'bg-green-600 text-white border-green-700 shadow-green-100' : 'bg-red-50 text-red-600 border border-red-100 shadow-red-50'">
+                  <svg v-if="myWeeksPaid.includes(weekKey)" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+                  <span v-else>⚠️</span>
+                </div>
+                <span class="text-[9px] font-black text-gray-500 uppercase tracking-widest">{{ weekName.split(' ')[1] }}</span>
+              </div>
+            </div>
+          </div>
+          
+          <div class="grid grid-cols-2 gap-3 mb-4">
+            <div class="bg-blue-50/50 border border-blue-100/30 rounded-xl p-3 text-center">
+              <p class="text-[9px] font-black text-blue-600 uppercase tracking-wider mb-0.5">Total Setor</p>
+              <p class="text-sm font-black text-blue-800">{{ myTotalPaidFormatted }}</p>
+            </div>
+            <div class="bg-amber-50/50 border border-amber-100/30 rounded-xl p-3 text-center">
+              <p class="text-[9px] font-black text-amber-600 uppercase tracking-wider mb-0.5">Tunggakan Bulan Ini</p>
+              <p class="text-sm font-black" :class="myOutstandingFormatted !== 'Rp 0' ? 'text-red-600' : 'text-green-600'">{{ myOutstandingFormatted }}</p>
+            </div>
+          </div>
+          
+          <!-- Instructions -->
+          <div class="bg-blue-50/60 rounded-2xl p-4 border border-blue-100 flex gap-3 text-[11px] leading-relaxed">
+            <svg class="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <div>
+              <p class="font-bold text-blue-900 mb-1">Cara Pembayaran Kas:</p>
+              <p class="text-blue-700 font-medium">Silakan setor kas secara langsung ke **Bendahara Kelas** (Rp 2.000 / minggu), atau transfer ke rekening kelas dan konfirmasikan pembayaran Anda.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
+      <div class="xl:col-span-2">
+        <PaymentMatrix 
+          :matrixData="matrixData"
+          :getMonthWeekText="getMonthWeekText"
+          :loading="loading"
+          :readonly="true"
+        />
+      </div>
+
+      <ClassInfo
+        :totalStudents="totalStudents"
+        :collectionRate="collectionRate"
+        :unpaidThisWeek="unpaidThisWeek"
+        :weeklyDues="WEEKLY_DUES"
       />
     </div>
-
-    <PaymentMatrix 
-      :matrixData="matrixData"
-      :getMonthWeekText="getMonthWeekText"
-      :loading="loading"
-      :readonly="true"
-    />
   </StudentLayout>
 </template>

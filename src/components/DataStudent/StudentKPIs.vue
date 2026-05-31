@@ -10,27 +10,6 @@ defineProps({
 <template>
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
     <div class="lg:col-span-2 flex flex-col gap-6">
-      <!-- Filters -->
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-4">
-          <div>
-            <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Jangka Waktu</label>
-            <select class="block w-40 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-lg border bg-white shadow-sm font-medium text-gray-700">
-              <option>Bulan Ini</option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Minggu</label>
-            <select class="block w-32 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-lg border bg-white shadow-sm font-medium text-gray-700">
-              <option>Semua Minggu</option>
-            </select>
-          </div>
-        </div>
-        <div class="flex gap-2 self-end">
-          <button class="p-2 border border-gray-200 bg-white rounded-lg text-gray-500 hover:bg-gray-50 transition"><svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/></svg></button>
-          <button class="p-2 border border-gray-200 bg-white rounded-lg text-gray-500 hover:bg-gray-50 transition"><svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg></button>
-        </div>
-      </div>
       <!-- Stats -->
       <div class="grid grid-cols-3 gap-4">
         <div class="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm border-l-4 border-l-green-500 relative overflow-hidden group hover:shadow-md transition-all">

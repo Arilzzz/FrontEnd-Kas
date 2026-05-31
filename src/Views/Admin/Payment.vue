@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import AdminLayout from '../../components/AdminLayout.vue'
 import StudentPaymentProfile from '../../components/Payment/StudentPaymentProfile.vue'
@@ -16,7 +16,7 @@ const isSubmitting = ref(false)
 const selectedStudentId = ref('')
 const amount = ref('')
 const transactionDate = ref(new Date().toISOString().split('T')[0])
-const selectedWeek = ref('Week 1')
+const selectedWeek = ref('Minggu 1')
 const selectedMonth = ref(new Date().toISOString().slice(0, 7)) // YYYY-MM
 const showSuccess = ref(false)
 
@@ -41,8 +41,67 @@ const fetchData = async () => {
   }
 }
 
+// Date Sync Logic
+const updateDateFromPeriod = () => {
+  if (!selectedMonth.value) return
+  
+  const [year, month] = selectedMonth.value.split('-').map(Number)
+  const firstDay = new Date(year, month - 1, 1)
+  
+  // Find first Monday
+  let firstMonday = new Date(firstDay)
+  while (firstMonday.getDay() !== 1) {
+    firstMonday.setDate(firstMonday.getDate() + 1)
+  }
+  
+  // Simple offset based on week
+  const weekOffset = {
+    'Minggu 1': 0,
+    'Minggu 2': 7,
+    'Minggu 3': 14,
+    'Minggu 4': 21
+  }
+  
+  const targetDate = new Date(firstMonday)
+  targetDate.setDate(firstMonday.getDate() + (weekOffset[selectedWeek.value] || 0))
+  
+  // Safety: don't go out of month
+  if (targetDate.getMonth() !== month - 1) {
+    targetDate.setDate(firstDay.getDate()) // Fallback to 1st of month
+  }
+  
+  const targetDateString = targetDate.toISOString().split('T')[0]
+  if (transactionDate.value !== targetDateString) {
+    transactionDate.value = targetDateString
+  }
+}
+
+watch([selectedWeek, selectedMonth], () => {
+  updateDateFromPeriod()
+})
+
+watch(transactionDate, (newDate) => {
+  if (!newDate) return
+  const d = new Date(newDate)
+  
+  // Update month
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const newMonthVal = `${year}-${month}`
+  if (selectedMonth.value !== newMonthVal) {
+    selectedMonth.value = newMonthVal
+  }
+  
+  // Update week
+  const weekVal = getWeekOfMonth(newDate)
+  if (selectedWeek.value !== weekVal) {
+    selectedWeek.value = weekVal
+  }
+})
+
 onMounted(() => {
   fetchData()
+  updateDateFromPeriod()
 })
 
 const treasuryBalance = computed(() => {
