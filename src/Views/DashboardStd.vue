@@ -446,5 +446,6 @@ const getMonthWeekText = () => {
         :weeklyDues="WEEKLY_DUES"
       />
     </div>
+    </div>
   </StudentLayout>
 </template>
