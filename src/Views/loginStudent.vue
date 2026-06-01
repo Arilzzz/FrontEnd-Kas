@@ -53,8 +53,8 @@ async function loginStudent() {
           <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-600 text-white shadow-lg shadow-blue-200 mb-6">
             <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
           </div>
-          <h2 class="text-3xl font-black text-gray-900 mb-2">Student Portal</h2>
-          <p class="text-gray-500 font-medium text-sm">Enter your NIS to view your dashboard</p>
+          <h2 class="text-3xl font-black text-gray-900 mb-2">Pusat Informasi Siswa</h2>
+          <p class="text-gray-500 font-medium text-sm">Masukkan NIS Anda untuk melihat dasbor Anda.</p>
         </div>
 
         <div class="px-8 pb-12">
@@ -67,7 +67,7 @@ async function loginStudent() {
                 </div>
                 <input id="nis" type="text" v-model="nis" @keyup.enter="loginStudent"
                   class="block w-full pl-11 pr-4 py-3.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-50/50 outline-none transition-all placeholder-gray-400"
-                  placeholder="e.g. 2021001" />
+                  placeholder="contoh: 202001" />
               </div>
             </div>
 

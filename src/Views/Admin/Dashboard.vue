@@ -186,38 +186,6 @@ const totalExpenseThisMonth = computed(() =>
   formatRupiah(totalExpenseThisMonthRaw.value),
 );
 
-const studentsMenunggak = computed(() => {
-  const currentMonth = new Date().getMonth();
-  const currentYear = new Date().getFullYear();
-  const targetThisMonth = 4 * WEEKLY_DUES;
-
-  const data = students.value
-    .map((student) => {
-      const paidThisMonth = payments.value
-        .filter(
-          (p) =>
-            Number(p.data_student_id) === Number(student.id) &&
-            new Date(p.tanggal_pemasukkan).getMonth() === currentMonth &&
-            new Date(p.tanggal_pemasukkan).getFullYear() === currentYear,
-        )
-        .reduce((sum, p) => sum + Number(p.jumlah_pemasukkan), 0);
-
-      const tunggakan = targetThisMonth - paidThisMonth;
-      return {
-        id: student.id,
-        name: student.nama_siswa || student.nama_lengkap || "Unknown",
-        avatar: (student.nama_siswa || student.nama_lengkap || "U")
-          .substring(0, 2)
-          .toUpperCase(),
-        tunggakanRaw: tunggakan,
-        tunggakan: formatRupiah(tunggakan),
-      };
-    })
-    .filter((s) => s.tunggakanRaw > 0);
-
-  return data.sort((a, b) => b.tunggakanRaw - a.tunggakanRaw); // Pass all, slice in component or handle pagination there
-});
-
 // 3. Recent Ledger
 const isLedgerExpanded = ref(false);
 const toggleLedger = () => {
@@ -247,23 +215,23 @@ const recentLedger = computed(() => {
       return {
         id: `p-${p.id}`,
         type: "income",
-        title: `Class Fee - ${student ? (student.nama_siswa || student.nama_lengkap || "").split(" ")[0] : "Unknown"}`,
-        studentName: student
-          ? student.nama_siswa || student.nama_lengkap
-          : "Unknown",
+        title: `Iuran - ${student ? (student.nama_siswa || student.nama_lengkap || "").split(" ")[0] : "Unknown"}`,
+        studentName: student ? student.nama_siswa || student.nama_lengkap : "Unknown",
         amount: Number(p.jumlah_pemasukkan),
         tunggakan: tunggakanRaw > 0 ? tunggakanRaw : 0,
         date: p.tanggal_pemasukkan,
+        created_at: p.created_at || p.tanggal_pemasukkan,
       };
     }),
     ...expenses.value.map((e) => ({
       id: `e-${e.id}`,
       type: "expense",
-      title: e.keterangan || "Expense",
+      title: e.keterangan || "Pengeluaran",
       studentName: "-",
       amount: Number(e.jumlah_pengeluaran),
       tunggakan: 0,
       date: e.tanggal_pengeluaran,
+      created_at: e.created_at || e.tanggal_pengeluaran,
     })),
   ];
 
@@ -279,8 +247,9 @@ const recentLedger = computed(() => {
     });
   }
 
-  allLedger.sort((a, b) => new Date(b.date) - new Date(a.date));
-  return isLedgerExpanded.value ? allLedger : allLedger.slice(0, 3);
+  // Sort by created_at desc (latest transaction first, not latest payment date)
+  allLedger.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  return allLedger; // RecentLedger handles slicing internally
 });
 
 const weeklyTotalRaw = computed(() => {
@@ -440,7 +409,9 @@ onMounted(() => {
     </div>
 
     <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
-      <SiswaMenunggak :studentsMenunggak="studentsMenunggak" />
+      <div class="xl:col-span-2">
+        <SiswaMenunggak :students="students" :payments="payments" :weeklyDues="WEEKLY_DUES" />
+      </div>
       <QuickActions />
     </div>
   </AdminLayout>

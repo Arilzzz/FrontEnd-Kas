@@ -124,8 +124,18 @@ const formatRupiah = (num) => {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(num)
 }
 
+const parseLocalDate = (dateStr) => {
+  if (!dateStr) return new Date()
+  const clean = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr
+  const parts = clean.split('-')
+  if (parts.length === 3) return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]))
+  return new Date(dateStr)
+}
+
 const formatDate = (dateStr) => {
-  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  if (!dateStr) return 'Tanggal tidak valid'
+  const d = parseLocalDate(dateStr)
+  return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
 // Derived states
@@ -293,16 +303,6 @@ const recentProofs = computed(() => {
         <div class="flex items-center gap-3">
           <div class="w-1 h-6 bg-red-600 rounded-full"></div>
           <h2 class="text-xl font-bold text-gray-900">Riwayat Pengeluaran</h2>
-        </div>
-        <div class="flex gap-2">
-          <button class="px-4 py-2 bg-white border border-gray-200 text-sm font-bold text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2 shadow-sm">
-            <svg class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/></svg>
-            Filter
-          </button>
-          <button class="px-4 py-2 bg-white border border-gray-200 text-sm font-bold text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2 shadow-sm">
-            <svg class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4-4m0 0l-4-4m4 4V4"/></svg>
-            Ekspor
-          </button>
         </div>
       </div>
 

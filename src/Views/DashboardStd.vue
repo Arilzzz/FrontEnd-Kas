@@ -4,8 +4,7 @@ import StudentLayout from '../components/StudentLayout.vue'
 import DashboardSummaryCards from '../components/Dashboard/DashboardSummaryCards.vue'
 import FinancialChart from '../components/Dashboard/FinancialChart.vue'
 import RecentLedger from '../components/Dashboard/RecentLedger.vue'
-import PaymentMatrix from '../components/Dashboard/PaymentMatrix.vue'
-import ClassInfo from '../components/Dashboard/ClassInfo.vue'
+import SiswaMenunggak from '../components/Dashboard/SiswaMenunggak.vue'
 import api from '../services/api'
 
 // Logic exactly like Dashboard.vue but simplified
@@ -38,9 +37,23 @@ const parseLocalDate = (dateString) => {
   }
   const parts = dateString.split('-');
   if (parts.length === 3) {
-    return new Date(parts[0], parts[1] - 1, parts[2]);
+    return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
   }
   return new Date(dateString);
+}
+
+const getWeekOfMonth = (dateString) => {
+  const date = parseLocalDate(dateString);
+  const year = date.getFullYear();
+  const month = date.getMonth();
+  let firstMonday = new Date(year, month, 1);
+  while (firstMonday.getDay() !== 1) firstMonday.setDate(firstMonday.getDate() + 1);
+  if (date < firstMonday) return 'Minggu 1';
+  const diffDays = Math.floor((date - firstMonday) / (1000 * 60 * 60 * 24));
+  if (diffDays < 7) return 'Minggu 1';
+  if (diffDays < 14) return 'Minggu 2';
+  if (diffDays < 21) return 'Minggu 3';
+  return 'Minggu 4';
 }
 
 const formatDate = (dateString) => {
@@ -163,17 +176,19 @@ const recentLedger = computed(() => {
       return {
         id: `p-${p.id}`,
         type: 'income',
-        title: `Class Fee - ${student ? (student.nama_siswa || student.nama_lengkap || '').split(' ')[0] : 'Unknown'}`,
+        title: `Iuran - ${student ? (student.nama_siswa || student.nama_lengkap || '').split(' ')[0] : 'Unknown'}`,
         amount: Number(p.jumlah_pemasukkan),
-        date: p.tanggal_pemasukkan
+        date: p.tanggal_pemasukkan,
+        created_at: p.created_at || p.tanggal_pemasukkan
       }
     }),
     ...expenses.value.map(e => ({
       id: `e-${e.id}`,
       type: 'expense',
-      title: e.keterangan || 'Expense',
+      title: e.keterangan || 'Pengeluaran',
       amount: Number(e.jumlah_pengeluaran),
-      date: e.tanggal_pengeluaran
+      date: e.tanggal_pengeluaran,
+      created_at: e.created_at || e.tanggal_pengeluaran
     }))
   ]
 
@@ -185,19 +200,13 @@ const recentLedger = computed(() => {
   }
   if (filterWeek.value !== "") {
     allLedger = allLedger.filter((item) => {
-      const weekMap = {
-        'w1': 'Minggu 1',
-        'w2': 'Minggu 2',
-        'w3': 'Minggu 3',
-        'w4': 'Minggu 4'
-      }
-      const itemWeek = getWeekOfMonth(item.date);
-      return weekMap[itemWeek] === filterWeek.value;
+      return getWeekOfMonth(item.date) === filterWeek.value;
     });
   }
 
-  allLedger.sort((a, b) => new Date(b.date) - new Date(a.date))
-  return isLedgerExpanded.value ? allLedger : allLedger.slice(0, 3)
+  // Sort by created_at desc — shows latest transaction first regardless of payment date
+  allLedger.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+  return allLedger // RecentLedger handles slicing internally
 })
 
 const weeklyTotalRaw = computed(() => {
@@ -286,24 +295,78 @@ const studentPaymentsFiltered = computed(() => {
   return payments.value.filter(p => Number(p.data_student_id) === Number(loggedInUser.value.id))
 })
 
+// ── Carry-over payment logic (base = first payment month) ────────────────
+// KEY: We count from the first Monday of the FIRST payment month,
+// NOT from school year start. So paying 20k in May covers 10 weeks from May.
+
+const parseLocalDateStd = (dateStr) => {
+  if (!dateStr) return new Date()
+  const clean = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr
+  const parts = clean.split('-')
+  if (parts.length === 3) return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]))
+  return new Date(dateStr)
+}
+
+// Get the Nth Monday in a given month/year
+const getNthMondayOfMonth = (year, month, n) => {
+  let d = new Date(year, month, 1)
+  while (d.getDay() !== 1) d.setDate(d.getDate() + 1)
+  return new Date(d.getTime() + (n - 1) * 7 * 86400000)
+}
+
+// Base = first Monday of the month of the student's FIRST payment
+const myBase = computed(() => {
+  const sp = studentPaymentsFiltered.value
+  if (!sp.length) {
+    // Default to first Monday of selected progress month
+    let d = new Date(selectedProgressYear.value, selectedProgressMonth.value, 1)
+    while (d.getDay() !== 1) d.setDate(d.getDate() + 1)
+    return d
+  }
+  const sorted = [...sp].sort((a, b) =>
+    parseLocalDateStd(a.tanggal_pemasukkan) - parseLocalDateStd(b.tanggal_pemasukkan)
+  )
+  const first = parseLocalDateStd(sorted[0].tanggal_pemasukkan)
+  let d = new Date(first.getFullYear(), first.getMonth(), 1)
+  while (d.getDay() !== 1) d.setDate(d.getDate() + 1)
+  return d
+})
+
+// Month selector for personal progress card
+const selectedProgressMonth = ref(new Date().getMonth())
+const selectedProgressYear = ref(new Date().getFullYear())
+
+const MONTH_NAMES_ID = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des']
+
+const prevProgressMonth = () => {
+  if (selectedProgressMonth.value === 0) {
+    selectedProgressMonth.value = 11
+    selectedProgressYear.value--
+  } else {
+    selectedProgressMonth.value--
+  }
+}
+const nextProgressMonth = () => {
+  if (selectedProgressMonth.value === 11) {
+    selectedProgressMonth.value = 0
+    selectedProgressYear.value++
+  } else {
+    selectedProgressMonth.value++
+  }
+}
+
 const myWeeksPaid = computed(() => {
-  const currentMonth = new Date().getMonth()
-  const currentYear = new Date().getFullYear()
-  
-  const thisMonthPayments = studentPaymentsFiltered.value.filter(p => {
-    const d = new Date(p.tanggal_pemasukkan)
-    return d.getMonth() === currentMonth && d.getFullYear() === currentYear
-  })
-  
-  const paidWeeks = []
-  thisMonthPayments.forEach(p => {
-    const week = getWeekOfMonth(p.tanggal_pemasukkan)
-    if (!paidWeeks.includes(week)) {
-      paidWeeks.push(week)
-    }
-  })
-  
-  return paidWeeks
+  const totalPaid = studentPaymentsFiltered.value.reduce((sum, p) => sum + Number(p.jumlah_pemasukkan), 0)
+  if (!totalPaid) return []
+  const covered = Math.floor(totalPaid / WEEKLY_DUES)
+  const base = myBase.value
+  const result = []
+  for (let n = 1; n <= 4; n++) {
+    const monday = getNthMondayOfMonth(selectedProgressYear.value, selectedProgressMonth.value, n)
+    const ord = Math.floor((monday.getTime() - base.getTime()) / (7 * 86400000)) + 1
+    if (ord >= 1 && ord <= covered) result.push(`Minggu ${n}`)
+  }
+  return result
 })
 
 const myTotalPaidFormatted = computed(() => {
@@ -312,19 +375,16 @@ const myTotalPaidFormatted = computed(() => {
 })
 
 const myOutstandingFormatted = computed(() => {
-  const target = 4 * WEEKLY_DUES
-  const currentMonth = new Date().getMonth()
-  const currentYear = new Date().getFullYear()
-  
-  const paidThisMonth = studentPaymentsFiltered.value
-    .filter(p => {
-      const d = new Date(p.tanggal_pemasukkan)
-      return d.getMonth() === currentMonth && d.getFullYear() === currentYear
-    })
-    .reduce((sum, p) => sum + Number(p.jumlah_pemasukkan), 0)
-    
-  const diff = target - paidThisMonth
-  return formatRupiah(diff > 0 ? diff : 0)
+  // How many weeks from base have elapsed up to and including current week?
+  const now = new Date()
+  let thisMonday = new Date(now)
+  while (thisMonday.getDay() !== 1) thisMonday.setDate(thisMonday.getDate() - 1)
+  const base = myBase.value
+  const currentWeekOrd = Math.floor((thisMonday.getTime() - base.getTime()) / (7 * 86400000)) + 1
+  const totalPaid = studentPaymentsFiltered.value.reduce((sum, p) => sum + Number(p.jumlah_pemasukkan), 0)
+  const covered = Math.floor(totalPaid / WEEKLY_DUES)
+  const outstanding = Math.max(0, currentWeekOrd - covered) * WEEKLY_DUES
+  return formatRupiah(outstanding)
 })
 
 onMounted(() => {
@@ -348,7 +408,8 @@ const getMonthWeekText = () => {
     <div class="mb-8">
       <h1 class="text-3xl font-bold text-gray-900 tracking-tight">Dashboard Keuangan Kelas</h1>
       <p class="text-gray-500 mt-1">Pantau pemasukan, pengeluaran, dan saldo kas kelas secara transparan dan akurat.</p>
-    </div>    <DashboardSummaryCards 
+    </div>    
+    <DashboardSummaryCards 
       :currentBalance="currentBalance"
       :balanceTrend="balanceTrend"
       :totalStudents="totalStudents"
@@ -379,20 +440,32 @@ const getMonthWeekText = () => {
             </div>
           </div>
           
-          <!-- Weekly Indicators -->
+          <!-- Weekly Indicators with month selector -->
           <div class="bg-gray-50 rounded-2xl p-4 mb-4 border border-gray-100/50">
-            <p class="text-[10px] font-bold text-gray-500 mb-3 uppercase tracking-wider text-center">Progres Kas Bulan Ini</p>
+            <!-- Month navigator -->
+            <div class="flex items-center justify-between mb-3">
+              <button @click="prevProgressMonth" class="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-200 rounded-lg transition-all">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>
+              </button>
+              <p class="text-[10px] font-black text-gray-600 uppercase tracking-wider">
+                Progres Kas — {{ MONTH_NAMES_ID[selectedProgressMonth] }} {{ selectedProgressYear }}
+              </p>
+              <button @click="nextProgressMonth" class="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-200 rounded-lg transition-all">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
+              </button>
+            </div>
             <div class="flex justify-between items-center px-2">
               <div v-for="(weekName, weekKey) in { 'w1': 'Minggu 1', 'w2': 'Minggu 2', 'w3': 'Minggu 3', 'w4': 'Minggu 4' }" :key="weekKey" class="flex flex-col items-center gap-1.5">
                 <div class="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold transition-all shadow-sm border"
-                     :class="myWeeksPaid.includes(weekKey) ? 'bg-green-600 text-white border-green-700 shadow-green-100' : 'bg-red-50 text-red-600 border-red-100 shadow-red-50'">
-                  <svg v-if="myWeeksPaid.includes(weekKey)" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
-                  <span v-else>⚠️</span>
+                     :class="myWeeksPaid.includes(weekName) ? 'bg-green-600 text-white border-green-700 shadow-green-100' : 'bg-red-50 text-red-600 border-red-100 shadow-red-50'">
+                  <svg v-if="myWeeksPaid.includes(weekName)" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+                  <span v-else class="text-xs">✕</span>
                 </div>
                 <span class="text-[9px] font-black text-gray-500 uppercase tracking-widest">{{ weekName.split(' ')[1] }}</span>
               </div>
             </div>
           </div>
+
           
           <div class="grid grid-cols-2 gap-3 mb-4">
             <div class="bg-blue-50/50 border border-blue-100/30 rounded-xl p-3 text-center">
@@ -433,12 +506,11 @@ const getMonthWeekText = () => {
         />
       </div>
 
-      <!-- Row 2 Right: Class Info -->
+      <!-- Row 2 Right: Siswa Menunggak -->
       <div v-if="!isLedgerExpanded" class="xl:col-span-1">
-        <ClassInfo
-          :totalStudents="totalStudents"
-          :collectionRate="collectionRate"
-          :unpaidThisWeek="unpaidThisWeek"
+        <SiswaMenunggak
+          :students="students"
+          :payments="payments"
           :weeklyDues="WEEKLY_DUES"
         />
       </div>

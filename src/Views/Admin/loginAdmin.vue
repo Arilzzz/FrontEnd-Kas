@@ -56,14 +56,14 @@ async function loginAdmin() {
           <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-600 text-white shadow-lg shadow-blue-200 mb-6">
             <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
           </div>
-          <h2 class="text-3xl font-black text-gray-900 mb-2">Admin Secure Login</h2>
-          <p class="text-gray-500 font-medium text-sm">Authenticate to access the dashboard</p>
+          <h2 class="text-3xl font-black text-gray-900 mb-2">Login Administrator</h2>
+          <p class="text-gray-500 font-medium text-sm">Autentikasi diperlukan untuk mengakses dashboard administrasi.</p>
         </div>
 
         <div class="px-8 pb-12">
           <div class="space-y-5">
             <div>
-              <label for="email" class="block text-sm font-bold text-gray-700 mb-2">Email Address</label>
+              <label for="email" class="block text-sm font-bold text-gray-700 mb-2">Alamat Email</label>
               <div class="relative">
                 <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                   <svg class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"/></svg>
@@ -102,8 +102,8 @@ async function loginAdmin() {
           </div>
           
           <div class="mt-8 text-center flex flex-col gap-2 text-sm font-medium text-gray-500">
-            <p>New admin? <router-link to="/admin/register" class="text-blue-600 font-bold hover:text-blue-500 transition-colors inline-block ml-1">Create Account</router-link></p>
-            <router-link to="/login" class="text-gray-400 hover:text-gray-600 transition-colors inline-block mt-2">← Back to Student Portal</router-link>
+            <p>Belum punya akun? <router-link to="/admin/register" class="text-blue-600 font-bold hover:text-blue-500 transition-colors inline-block ml-1">Buat Akun</router-link></p>
+            <router-link to="/login" class="text-gray-400 hover:text-gray-600 transition-colors inline-block mt-2">← Kembali ke Portal Siswa</router-link>
           </div>
         </div>
       </div>

@@ -15,6 +15,69 @@ const searchQuery = ref("");
 
 const WEEKLY_DUES = 2000; // Rp 2000 per week
 
+// ── Carry-over payment logic (base = first payment month) ────────────────────
+// KEY: Count weeks from the first Monday of the student's FIRST payment month.
+// Paying 20k in May = base at May week 1, covers 10 weeks: May(4)+June(4)+July(2)
+
+const parseLocalDateDS = (dateStr) => {
+  if (!dateStr) return new Date()
+  const clean = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr
+  const parts = clean.split('-')
+  if (parts.length === 3) return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]))
+  return new Date(dateStr)
+}
+
+// Base = first Monday of the month of a student's earliest payment
+const getStudentBase = (studentPayments) => {
+  if (!studentPayments.length) {
+    // No payments: use first Monday of current month as fallback
+    const now = new Date()
+    let d = new Date(now.getFullYear(), now.getMonth(), 1)
+    while (d.getDay() !== 1) d.setDate(d.getDate() + 1)
+    return d
+  }
+  const sorted = [...studentPayments].sort(
+    (a, b) => parseLocalDateDS(a.tanggal_pemasukkan) - parseLocalDateDS(b.tanggal_pemasukkan)
+  )
+  const first = parseLocalDateDS(sorted[0].tanggal_pemasukkan)
+  let d = new Date(first.getFullYear(), first.getMonth(), 1)
+  while (d.getDay() !== 1) d.setDate(d.getDate() + 1)
+  return d
+}
+
+// Get the Nth Monday in a given month/year
+const getNthMondayOfMonth = (year, month, n) => {
+  let d = new Date(year, month, 1)
+  while (d.getDay() !== 1) d.setDate(d.getDate() + 1)
+  return new Date(d.getTime() + (n - 1) * 7 * 86400000)
+}
+
+// Returns ['w1','w2',...] covered in a given month by totalPaid, using student's base
+const getCoveredWeeksForMonth = (totalPaid, year, month, base) => {
+  const covered = Math.floor(totalPaid / WEEKLY_DUES)
+  const result = []
+  for (let n = 1; n <= 4; n++) {
+    const monday = getNthMondayOfMonth(year, month, n)
+    const ord = Math.floor((monday.getTime() - base.getTime()) / (7 * 86400000)) + 1
+    if (ord >= 1 && ord <= covered) result.push(`w${n}`)
+  }
+  return result
+}
+
+// Month selector for the progress column
+const selectedViewMonth = ref(new Date().getMonth())
+const selectedViewYear = ref(new Date().getFullYear())
+const MONTH_NAMES_ID = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember']
+
+const prevViewMonth = () => {
+  if (selectedViewMonth.value === 0) { selectedViewMonth.value = 11; selectedViewYear.value-- }
+  else selectedViewMonth.value--
+}
+const nextViewMonth = () => {
+  if (selectedViewMonth.value === 11) { selectedViewMonth.value = 0; selectedViewYear.value++ }
+  else selectedViewMonth.value++
+}
+
 // CSV Import state
 const showImportModal = ref(false);
 const importFile = ref(null);
@@ -133,11 +196,7 @@ const getWeekOfMonth = (dateString) => {
 
 // Map students with their payment data
 const enrichedStudents = computed(() => {
-  const currentMonth = new Date().getMonth();
-  const currentYear = new Date().getFullYear();
-
   return students.value.map((student) => {
-    // Filter payments for this student
     const studentPayments = payments.value.filter(
       (p) => Number(p.data_student_id) === Number(student.id),
     );
@@ -147,53 +206,35 @@ const enrichedStudents = computed(() => {
       0,
     );
 
-    // Filter payments for CURRENT month
-    const currentMonthPayments = studentPayments.filter((p) => {
-      const d = new Date(p.tanggal_pemasukkan);
-      return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-    });
+    // Carry-over: weeks covered are determined by total paid, starting from first payment month
+    const base = getStudentBase(studentPayments)
+    const progress = getCoveredWeeksForMonth(totalPaid, selectedViewYear.value, selectedViewMonth.value, base)
 
-    const progress = [];
-    currentMonthPayments.forEach((p) => {
-      const week = getWeekOfMonth(p.tanggal_pemasukkan);
-      if (!progress.includes(week)) progress.push(week);
-    });
+    // Status: Lunas if all 4 weeks of the selected month are covered
+    const status = progress.length >= 4 ? 'Lunas' : 'Belum Bayar'
 
-    // Assume 4 weeks per month target
-    const targetThisMonth = 4 * WEEKLY_DUES;
-    const paidThisMonth = currentMonthPayments.reduce(
-      (sum, p) => sum + Number(p.jumlah_pemasukkan),
-      0,
-    );
-    const status = paidThisMonth >= targetThisMonth ? "Lunas" : "Belum Bayar";
-
-    // Find last payment date
-    let lastPaid = "-";
+    // Find last payment date (sorted by created_at)
+    let lastPaid = '-'
     if (studentPayments.length > 0) {
       const sorted = [...studentPayments].sort(
-        (a, b) =>
-          new Date(b.tanggal_pemasukkan) - new Date(a.tanggal_pemasukkan),
-      );
-      const d = new Date(sorted[0].tanggal_pemasukkan);
-      lastPaid = d.toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-      });
+        (a, b) => new Date(b.created_at || b.tanggal_pemasukkan) - new Date(a.created_at || a.tanggal_pemasukkan),
+      )
+      const d = new Date(sorted[0].tanggal_pemasukkan)
+      lastPaid = d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
     }
 
-    const isDue = paidThisMonth < targetThisMonth;
-    const dueAmount = targetThisMonth - paidThisMonth;
+    const isDue = progress.length < 4
 
     return {
       id: student.id,
       nisn: student.nis,
-      name: student.nama_siswa || student.nama_lengkap || "Unknown",
+      name: student.nama_siswa || student.nama_lengkap || 'Unknown',
       status: status,
       progress: progress,
       total: formatRupiah(totalPaid),
-      lastPaid: isDue ? `Due: ${formatRupiah(dueAmount)}` : lastPaid,
+      lastPaid: lastPaid,
       isDue: isDue,
-      avatar: (student.nama_siswa || "U").substring(0, 2).toUpperCase(),
+      avatar: (student.nama_siswa || 'U').substring(0, 2).toUpperCase(),
     };
   });
 });
@@ -378,6 +419,20 @@ const handleDelete = async (id) => {
       />
     </div>
 
+    <!-- Month selector for progress column -->
+    <div class="flex items-center gap-3 mb-4 bg-white rounded-2xl px-4 py-3 border border-gray-100 shadow-sm max-w-sm">
+      <button @click="prevViewMonth" class="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-all">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>
+      </button>
+      <div class="flex-1 text-center">
+        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Progres Bulan</p>
+        <p class="text-sm font-black text-gray-900">{{ MONTH_NAMES_ID[selectedViewMonth] }} {{ selectedViewYear }}</p>
+      </div>
+      <button @click="nextViewMonth" class="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-all">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
+      </button>
+    </div>
+
     <StudentRegistryTable
       :enrichedStudents="filteredStudents"
       :lunasCount="lunasCount"
@@ -386,6 +441,7 @@ const handleDelete = async (id) => {
       @edit="handleEdit"
       @delete="handleDelete"
     />
+
 
     <!-- Expand Class Roster CTA -->
     <div

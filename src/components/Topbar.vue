@@ -4,16 +4,41 @@ import { inject, ref, onMounted } from 'vue'
 const toggleSidebar = inject('toggleSidebar')
 const adminName = ref('Admin Kas')
 const initials = ref('A')
+const subTitle = ref('XI TJKT 1')
 
 onMounted(() => {
   const userDataStr = localStorage.getItem('user_data')
+
   if (userDataStr) {
     try {
       const user = JSON.parse(userDataStr)
-      if (user && user.name) {
-        adminName.value = user.name
-        initials.value = user.name.substring(0, 2).toUpperCase()
+
+      if (user) {
+        const nama = user.name || user.nama_siswa
+        if (nama) {
+          adminName.value = nama
+          initials.value = nama.substring(0, 2).toUpperCase()
+        }
+        if (user.nis) {
+          subTitle.value = 'XI TJKT 1'
+        } else {
+          subTitle.value = 'Admin Kas'
+        }
       }
+      console.log(user)
+      console.log(adminName.value)
+      console.log(subTitle.value)
+
+      // jika login siswa
+      if (user.nis) {
+        subTitle.value = 'XI TJKT 1'
+      }
+
+      // jika login admin
+      else {
+        subTitle.value = 'Admin Kas'
+      }
+
     } catch (e) {
       console.error(e)
     }
@@ -37,7 +62,7 @@ onMounted(() => {
       <div class="flex items-center gap-3 pl-6 border-l border-gray-200">
         <div class="hidden text-right md:block">
           <p class="text-sm font-semibold text-gray-900 leading-none">{{ adminName }}</p>
-          <p class="text-xs text-gray-500 mt-1">XI TJKT 1</p>
+          <p class="text-xs text-gray-500 mt-1">{{ subTitle }}</p>
         </div>
         <button class="flex text-sm border-2 border-transparent rounded-full focus:outline-none focus:border-blue-100 transition duration-150 ease-in-out">
           <div class="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 text-white flex items-center justify-center font-bold text-lg shadow-sm">
