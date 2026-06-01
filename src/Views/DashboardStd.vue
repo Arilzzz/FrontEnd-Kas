@@ -348,9 +348,7 @@ const getMonthWeekText = () => {
     <div class="mb-8">
       <h1 class="text-3xl font-bold text-gray-900 tracking-tight">Dashboard Keuangan Kelas</h1>
       <p class="text-gray-500 mt-1">Pantau pemasukan, pengeluaran, dan saldo kas kelas secara transparan dan akurat.</p>
-    </div>
-
-    <DashboardSummaryCards 
+    </div>    <DashboardSummaryCards 
       :currentBalance="currentBalance"
       :balanceTrend="balanceTrend"
       :totalStudents="totalStudents"
@@ -360,28 +358,17 @@ const getMonthWeekText = () => {
     />
 
     <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
-      <div :class="isLedgerExpanded ? 'xl:col-span-1' : 'xl:col-span-2'">
+      <!-- Row 1 Left: Financial Chart -->
+      <div class="xl:col-span-2">
         <FinancialChart 
           :chartData="chartData"
           :formatShortRupiah="formatShortRupiah"
         />
       </div>
 
-      <div :class="isLedgerExpanded ? 'xl:col-span-2' : 'xl:col-span-1'" class="flex flex-col gap-6">
-        <RecentLedger 
-          :recentLedger="recentLedger"
-          :formatDate="formatDate"
-          :formatShortRupiah="formatShortRupiah"
-          :formatRupiah="formatRupiah"
-          :weeklyTotalRaw="weeklyTotalRaw"
-          :isExpanded="isLedgerExpanded"
-          v-model:filterMonth="filterMonth"
-          v-model:filterWeek="filterWeek"
-          @toggle="toggleLedger"
-        />
-
-        <!-- Personal Student Payment Status Card -->
-        <div v-if="loggedInUser && !isLedgerExpanded" class="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm flex flex-col justify-between">
+      <!-- Row 1 Right: Personal Student Payment Status Card -->
+      <div class="xl:col-span-1">
+        <div v-if="loggedInUser" class="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm flex flex-col justify-between h-full min-h-[350px]">
           <div class="mb-4">
             <div class="flex items-center gap-2.5">
               <span class="text-xl">👋</span>
@@ -397,8 +384,8 @@ const getMonthWeekText = () => {
             <p class="text-[10px] font-bold text-gray-500 mb-3 uppercase tracking-wider text-center">Progres Kas Bulan Ini</p>
             <div class="flex justify-between items-center px-2">
               <div v-for="(weekName, weekKey) in { 'w1': 'Minggu 1', 'w2': 'Minggu 2', 'w3': 'Minggu 3', 'w4': 'Minggu 4' }" :key="weekKey" class="flex flex-col items-center gap-1.5">
-                <div class="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold transition-all shadow-sm"
-                     :class="myWeeksPaid.includes(weekKey) ? 'bg-green-600 text-white border-green-700 shadow-green-100' : 'bg-red-50 text-red-600 border border-red-100 shadow-red-50'">
+                <div class="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold transition-all shadow-sm border"
+                     :class="myWeeksPaid.includes(weekKey) ? 'bg-green-600 text-white border-green-700 shadow-green-100' : 'bg-red-50 text-red-600 border-red-100 shadow-red-50'">
                   <svg v-if="myWeeksPaid.includes(weekKey)" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
                   <span v-else>⚠️</span>
                 </div>
@@ -413,7 +400,7 @@ const getMonthWeekText = () => {
               <p class="text-sm font-black text-blue-800">{{ myTotalPaidFormatted }}</p>
             </div>
             <div class="bg-amber-50/50 border border-amber-100/30 rounded-xl p-3 text-center">
-              <p class="text-[9px] font-black text-amber-600 uppercase tracking-wider mb-0.5">Tunggakan Bulan Ini</p>
+              <p class="text-[9px] font-black text-amber-600 uppercase tracking-wider mb-0.5">Tunggakan Kamu</p>
               <p class="text-sm font-black" :class="myOutstandingFormatted !== 'Rp 0' ? 'text-red-600' : 'text-green-600'">{{ myOutstandingFormatted }}</p>
             </div>
           </div>
@@ -428,24 +415,33 @@ const getMonthWeekText = () => {
           </div>
         </div>
       </div>
+    </div>
 
-    <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
-      <div class="xl:col-span-2">
-        <PaymentMatrix 
-          :matrixData="matrixData"
-          :getMonthWeekText="getMonthWeekText"
-          :loading="loading"
-          :readonly="true"
+    <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+      <!-- Row 2 Left: Recent Ledger -->
+      <div :class="isLedgerExpanded ? 'xl:col-span-3' : 'xl:col-span-2'">
+        <RecentLedger 
+          :recentLedger="recentLedger"
+          :formatDate="formatDate"
+          :formatShortRupiah="formatShortRupiah"
+          :formatRupiah="formatRupiah"
+          :weeklyTotalRaw="weeklyTotalRaw"
+          :isExpanded="isLedgerExpanded"
+          v-model:filterMonth="filterMonth"
+          v-model:filterWeek="filterWeek"
+          @toggle="toggleLedger"
         />
       </div>
 
-      <ClassInfo
-        :totalStudents="totalStudents"
-        :collectionRate="collectionRate"
-        :unpaidThisWeek="unpaidThisWeek"
-        :weeklyDues="WEEKLY_DUES"
-      />
-    </div>
+      <!-- Row 2 Right: Class Info -->
+      <div v-if="!isLedgerExpanded" class="xl:col-span-1">
+        <ClassInfo
+          :totalStudents="totalStudents"
+          :collectionRate="collectionRate"
+          :unpaidThisWeek="unpaidThisWeek"
+          :weeklyDues="WEEKLY_DUES"
+        />
+      </div>
     </div>
   </StudentLayout>
 </template>

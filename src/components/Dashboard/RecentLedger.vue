@@ -57,7 +57,7 @@ const emit = defineEmits(['toggle', 'update:filterMonth', 'update:filterWeek'])
       </div>
     </div>
 
-    <div class="flex flex-col gap-4 flex-1" :class="isExpanded ? 'max-h-96 overflow-y-auto pr-2' : ''">
+    <div class="flex flex-col gap-4 flex-1 transition-all duration-500 ease-in-out" :class="isExpanded ? 'max-h-[600px] overflow-y-auto pr-2' : 'max-h-[250px] overflow-hidden'">
       <div v-if="recentLedger.length === 0" class="text-center text-sm text-gray-500 py-6 font-medium">Tidak ada aktivitas pada periode ini</div>
       <div v-for="item in recentLedger" :key="item.id" class="bg-white p-4 rounded-2xl border border-gray-100 flex flex-col md:flex-row md:items-center justify-between shadow-sm gap-4">
         <div class="flex items-start gap-3">
