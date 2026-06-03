@@ -19,19 +19,12 @@ const paginatedStudents = computed(() => {
 
 const totalPages = computed(() => Math.ceil(props.enrichedStudents.length / itemsPerPage))
 
-const nextPage = () => {
-  if (currentPage.value < totalPages.value) currentPage.value++
-}
-
-const prevPage = () => {
-  if (currentPage.value > 1) currentPage.value--
-}
+const nextPage = () => { if (currentPage.value < totalPages.value) currentPage.value++ }
+const prevPage = () => { if (currentPage.value > 1) currentPage.value-- }
 
 const emit = defineEmits(['edit', 'delete'])
 
-const editStudent = (id) => {
-  emit('edit', id)
-}
+const editStudent = (id) => emit('edit', id)
 
 const deleteStudent = (id) => {
   if (confirm('Apakah Anda yakin ingin menghapus data siswa ini?')) {

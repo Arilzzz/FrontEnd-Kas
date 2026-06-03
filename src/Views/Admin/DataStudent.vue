@@ -11,13 +11,9 @@ const students = ref([]);
 const payments = ref([]);
 const expenses = ref([]);
 const loading = ref(true);
-const searchQuery = ref("");
+const searchQuery = ref("")
 
-const WEEKLY_DUES = 2000; // Rp 2000 per week
-
-// ── Carry-over payment logic (base = first payment month) ────────────────────
-// KEY: Count weeks from the first Monday of the student's FIRST payment month.
-// Paying 20k in May = base at May week 1, covers 10 weeks: May(4)+June(4)+July(2)
+const WEEKLY_DUES = 2000
 
 const parseLocalDateDS = (dateStr) => {
   if (!dateStr) return new Date()
@@ -26,8 +22,6 @@ const parseLocalDateDS = (dateStr) => {
   if (parts.length === 3) return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]))
   return new Date(dateStr)
 }
-
-// Base = first Monday of the month of a student's earliest payment
 const getStudentBase = (studentPayments) => {
   if (!studentPayments.length) {
     // No payments: use first Monday of current month as fallback
@@ -45,14 +39,12 @@ const getStudentBase = (studentPayments) => {
   return d
 }
 
-// Get the Nth Monday in a given month/year
 const getNthMondayOfMonth = (year, month, n) => {
   let d = new Date(year, month, 1)
   while (d.getDay() !== 1) d.setDate(d.getDate() + 1)
   return new Date(d.getTime() + (n - 1) * 7 * 86400000)
 }
 
-// Returns ['w1','w2',...] covered in a given month by totalPaid, using student's base
 const getCoveredWeeksForMonth = (totalPaid, year, month, base) => {
   const covered = Math.floor(totalPaid / WEEKLY_DUES)
   const result = []
@@ -64,10 +56,9 @@ const getCoveredWeeksForMonth = (totalPaid, year, month, base) => {
   return result
 }
 
-// Month selector for the progress column
 const selectedViewMonth = ref(new Date().getMonth())
 const selectedViewYear = ref(new Date().getFullYear())
-const MONTH_NAMES_ID = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember']
+const MONTH_NAMES_ID = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember']
 
 const prevViewMonth = () => {
   if (selectedViewMonth.value === 0) { selectedViewMonth.value = 11; selectedViewYear.value-- }
@@ -78,21 +69,20 @@ const nextViewMonth = () => {
   else selectedViewMonth.value++
 }
 
-// CSV Import state
-const showImportModal = ref(false);
-const importFile = ref(null);
-const importMode = ref("replace");
-const importLoading = ref(false);
-const importResult = ref(null);
-const importFileName = ref("");
+const showImportModal = ref(false)
+const importFile = ref(null)
+const importMode = ref('replace')
+const importLoading = ref(false)
+const importResult = ref(null)
+const importFileName = ref('')
 
 const openImportModal = () => {
-  importFile.value = null;
-  importMode.value = "replace";
-  importResult.value = null;
-  importFileName.value = "";
-  showImportModal.value = true;
-};
+  importFile.value = null
+  importMode.value = 'replace'
+  importResult.value = null
+  importFileName.value = ''
+  showImportModal.value = true
+}
 
 const closeImportModal = () => {
   showImportModal.value = false;
@@ -234,7 +224,12 @@ const enrichedStudents = computed(() => {
       total: formatRupiah(totalPaid),
       lastPaid: lastPaid,
       isDue: isDue,
-      avatar: (student.nama_siswa || 'U').substring(0, 2).toUpperCase(),
+      avatar: (() => {
+        const name = student.nama_siswa || student.nama_lengkap || 'U'
+        const words = name.trim().split(/\s+/)
+        if (words.length === 1) return words[0].substring(0, 2).toUpperCase()
+        return (words[0][0] + words[1][0]).toUpperCase()
+      })(),
     };
   });
 });

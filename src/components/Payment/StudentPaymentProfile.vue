@@ -20,7 +20,7 @@ const emit = defineEmits(['edit', 'delete'])
       </div>
       <div class="flex items-center gap-4 mb-6">
         <div class="w-14 h-14 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xl font-bold">
-          {{ selectedStudent ? (selectedStudent.nama_siswa || 'U').substring(0,2).toUpperCase() : '?' }}
+          {{ selectedStudent ? (() => { const n = selectedStudent.nama_siswa || 'U'; const w = n.trim().split(/\s+/); return w.length === 1 ? w[0].substring(0, 2).toUpperCase() : (w[0][0] + w[1][0]).toUpperCase() })() : '?' }}
         </div>
         <div>
           <h3 class="text-lg font-bold text-gray-900">{{ selectedStudent ? selectedStudent.nama_siswa : 'Nama Siswa' }}</h3>

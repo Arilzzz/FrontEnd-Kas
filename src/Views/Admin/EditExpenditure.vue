@@ -7,7 +7,6 @@ import api from '../../services/api'
 const router = useRouter()
 const route = useRoute()
 
-// State
 const loading = ref(true)
 const isSubmitting = ref(false)
 const description = ref('')
@@ -21,15 +20,13 @@ const expenditureId = route.query.id
 
 const fetchExpenditure = async () => {
   if (!expenditureId) {
-    loading.value = false;
+    loading.value = false
     return
   }
-  
   loading.value = true
   try {
     const res = await api.get(`/pengeluaran/${expenditureId}`)
     const exp = res.data.Data || res.data
-    
     if (exp) {
       description.value = exp.keterangan || ''
       amount.value = exp.jumlah_pengeluaran || ''
@@ -39,7 +36,7 @@ const fetchExpenditure = async () => {
       }
     }
   } catch (error) {
-    console.error("Error fetching expenditure:", error)
+    console.error('Error fetching expenditure:', error)
     alert('Gagal memuat data pengeluaran.')
     router.push('/admin/expenditure')
   } finally {
@@ -47,58 +44,38 @@ const fetchExpenditure = async () => {
   }
 }
 
-onMounted(() => {
-  fetchExpenditure()
-})
+onMounted(() => { fetchExpenditure() })
 
-// File handling
 const handleFileChange = (e) => {
   const file = e.target.files[0]
   if (!file) return
-  
   if (file.size > 5 * 1024 * 1024) {
-    fileError.value = "Ukuran file melebihi batas 5MB."
+    fileError.value = 'Ukuran file melebihi batas 5MB.'
     selectedFile.value = null
     return
   }
-  
   fileError.value = ''
   selectedFile.value = file
-  
   const reader = new FileReader()
-  reader.onload = (e) => {
-    previewImage.value = e.target.result
-  }
+  reader.onload = (e) => { previewImage.value = e.target.result }
   reader.readAsDataURL(file)
 }
 
-// Submit
 const submitExpenditure = async () => {
   if (!description.value || !amount.value || !transactionDate.value) return
-  
   isSubmitting.value = true
   try {
     const formData = new FormData()
-    formData.append('_method', 'PUT') // Required for Laravel to handle file uploads in PUT requests
+    formData.append('_method', 'PUT')
     formData.append('tanggal_pengeluaran', transactionDate.value)
     formData.append('jumlah_pengeluaran', Math.round(Number(amount.value)))
     formData.append('keterangan', description.value)
-    
-    if (selectedFile.value) {
-      formData.append('bukti_foto', selectedFile.value)
-    }
-    
-    await api.post(`/pengeluaran/${expenditureId}`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    })
-    
+    if (selectedFile.value) formData.append('bukti_foto', selectedFile.value)
+    await api.post(`/pengeluaran/${expenditureId}`, formData, { headers: { 'Content-Type': 'multipart/form-data' } })
     router.push('/admin/expenditure')
-    
   } catch (error) {
-    console.error("Failed to update:", error)
-    if (error.response) {
-      alert("Error: " + (error.response.data.message || JSON.stringify(error.response.data)))
-    }
+    console.error('Failed to update:', error)
+    if (error.response) alert('Error: ' + (error.response.data.message || JSON.stringify(error.response.data)))
   } finally {
     isSubmitting.value = false
   }

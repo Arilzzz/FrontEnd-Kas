@@ -1,48 +1,46 @@
 <script setup>
-import { ref } from "vue";
-import { useRouter } from "vue-router";
-import api from "../services/api";
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
+import api from '../services/api'
 
-const nis = ref('');
-const errorMsg = ref('');
-const loading = ref(false);
+const nis = ref('')
+const errorMsg = ref('')
+const loading = ref(false)
 
-const router = useRouter();
+const router = useRouter()
 
 async function loginStudent() {
-    errorMsg.value = '';
-    if (!nis.value) {
-        errorMsg.value = 'NIS tidak boleh kosong';
-        return;
+  errorMsg.value = ''
+  if (!nis.value) {
+    errorMsg.value = 'NIS tidak boleh kosong'
+    return
+  }
+
+  loading.value = true
+  try {
+    const res = await api.post('/login-Student', { nis: nis.value })
+    if (res.data && res.data.success) {
+      localStorage.setItem('auth_token', res.data.token)
+      localStorage.setItem('user_role', res.data.role)
+      localStorage.setItem('user_data', JSON.stringify(res.data.user))
+      router.push('/dashboardstd')
     }
-    
-    loading.value = true;
-    try {
-        const res = await api.post('/login-Student', { nis: nis.value });
-        if (res.data && res.data.success) {
-            localStorage.setItem('auth_token', res.data.token);
-            localStorage.setItem('user_role', res.data.role);
-            localStorage.setItem('user_data', JSON.stringify(res.data.user));
-            router.push('/dashboardstd');
-        }
-    } catch (err) {
-        if (err.response && err.response.data && err.response.data.message) {
-            errorMsg.value = err.response.data.message;
-        } else if (err.response && err.response.status === 404) {
-            errorMsg.value = "Data siswa tidak ditemukan";
-        } else {
-            errorMsg.value = "Terjadi kesalahan server";
-        }
-        console.error(err);
-    } finally {
-        loading.value = false;
+  } catch (err) {
+    if (err.response && err.response.data && err.response.data.message) {
+      errorMsg.value = err.response.data.message
+    } else if (err.response && err.response.status === 404) {
+      errorMsg.value = 'Data siswa tidak ditemukan'
+    } else {
+      errorMsg.value = 'Terjadi kesalahan server'
     }
+  } finally {
+    loading.value = false
+  }
 }
 </script>
 
 <template>
   <div class="min-h-screen flex items-center justify-center bg-gray-50 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] relative overflow-hidden">
-    <!-- Decorative blobs -->
     <div class="absolute top-0 left-1/4 w-96 h-96 bg-blue-400 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob"></div>
     <div class="absolute top-0 right-1/4 w-96 h-96 bg-purple-400 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000"></div>
     <div class="absolute -bottom-32 left-1/2 w-96 h-96 bg-pink-400 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-4000"></div>
@@ -78,10 +76,10 @@ async function loginStudent() {
 
             <button @click="loginStudent" :disabled="loading"
               class="w-full flex justify-center items-center gap-2 py-3.5 px-4 border border-transparent rounded-xl shadow-lg shadow-blue-200 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed">
-              <span v-if="!loading">Login to Dashboard</span>
+              <span v-if="!loading">Masuk ke Dashboard</span>
               <span v-else class="flex items-center gap-2">
-                <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                Processing...
+                <svg class="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                Memproses...
               </span>
             </button>
           </div>
@@ -98,13 +96,7 @@ async function loginStudent() {
   66% { transform: translate(-20px, 20px) scale(0.9); }
   100% { transform: translate(0px, 0px) scale(1); }
 }
-.animate-blob {
-  animation: blob 7s infinite;
-}
-.animation-delay-2000 {
-  animation-delay: 2s;
-}
-.animation-delay-4000 {
-  animation-delay: 4s;
-}
+.animate-blob { animation: blob 7s infinite; }
+.animation-delay-2000 { animation-delay: 2s; }
+.animation-delay-4000 { animation-delay: 4s; }
 </style>

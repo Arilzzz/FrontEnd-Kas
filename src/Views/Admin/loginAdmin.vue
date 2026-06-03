@@ -1,51 +1,49 @@
 <script setup>
-import { ref } from "vue";
-import { useRouter } from "vue-router";
-import api from "../../services/api";
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
+import api from '../../services/api'
 
-const email = ref('');
-const password = ref('');
-const errorMsg = ref('');
-const loading = ref(false);
+const email = ref('')
+const password = ref('')
+const errorMsg = ref('')
+const loading = ref(false)
 
-const router = useRouter();
+const router = useRouter()
 
 async function loginAdmin() {
-    errorMsg.value = '';
-    if (!email.value || !password.value) {
-        errorMsg.value = 'Email and password are required';
-        return;
+  errorMsg.value = ''
+  if (!email.value || !password.value) {
+    errorMsg.value = 'Email dan password wajib diisi'
+    return
+  }
+
+  loading.value = true
+  try {
+    const res = await api.post('/login-Admin', {
+      email: email.value,
+      password: password.value
+    })
+
+    if (res.data && res.data.token) {
+      localStorage.setItem('auth_token', res.data.token)
+      localStorage.setItem('user_role', res.data.role)
+      localStorage.setItem('user_data', JSON.stringify(res.data.user))
+      router.push('/admin/dashboard')
     }
-    
-    loading.value = true;
-    try {
-        const res = await api.post('/login-Admin', { 
-            email: email.value,
-            password: password.value
-        });
-        
-        if (res.data && res.data.token) {
-            localStorage.setItem('auth_token', res.data.token);
-            localStorage.setItem('user_role', res.data.role);
-            localStorage.setItem('user_data', JSON.stringify(res.data.user));
-            router.push('/admin/dashboard');
-        }
-    } catch (err) {
-        if (err.response && err.response.data && err.response.data.message) {
-            errorMsg.value = err.response.data.message;
-        } else {
-            errorMsg.value = "Terjadi kesalahan server";
-        }
-        console.error(err);
-    } finally {
-        loading.value = false;
+  } catch (err) {
+    if (err.response && err.response.data && err.response.data.message) {
+      errorMsg.value = err.response.data.message
+    } else {
+      errorMsg.value = 'Terjadi kesalahan server'
     }
+  } finally {
+    loading.value = false
+  }
 }
 </script>
 
 <template>
   <div class="min-h-screen flex items-center justify-center bg-gray-50 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] relative overflow-hidden">
-    <!-- Decorative blobs -->
     <div class="absolute top-0 left-1/4 w-96 h-96 bg-blue-400 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob"></div>
     <div class="absolute top-0 right-1/4 w-96 h-96 bg-purple-400 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000"></div>
     <div class="absolute -bottom-32 left-1/2 w-96 h-96 bg-pink-400 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-4000"></div>
@@ -93,14 +91,14 @@ async function loginAdmin() {
 
             <button @click="loginAdmin" :disabled="loading"
               class="w-full flex justify-center items-center gap-2 py-3.5 px-4 border border-transparent rounded-xl shadow-lg shadow-blue-200 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed">
-              <span v-if="!loading">Authenticate</span>
+              <span v-if="!loading">Masuk</span>
               <span v-else class="flex items-center gap-2">
-                <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                Processing...
+                <svg class="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                Memproses...
               </span>
             </button>
           </div>
-          
+
           <div class="mt-8 text-center flex flex-col gap-2 text-sm font-medium text-gray-500">
             <p>Belum punya akun? <router-link to="/admin/register" class="text-blue-600 font-bold hover:text-blue-500 transition-colors inline-block ml-1">Buat Akun</router-link></p>
             <router-link to="/login" class="text-gray-400 hover:text-gray-600 transition-colors inline-block mt-2">← Kembali ke Portal Siswa</router-link>
@@ -118,13 +116,7 @@ async function loginAdmin() {
   66% { transform: translate(-20px, 20px) scale(0.9); }
   100% { transform: translate(0px, 0px) scale(1); }
 }
-.animate-blob {
-  animation: blob 7s infinite;
-}
-.animation-delay-2000 {
-  animation-delay: 2s;
-}
-.animation-delay-4000 {
-  animation-delay: 4s;
-}
+.animate-blob { animation: blob 7s infinite; }
+.animation-delay-2000 { animation-delay: 2s; }
+.animation-delay-4000 { animation-delay: 4s; }
 </style>

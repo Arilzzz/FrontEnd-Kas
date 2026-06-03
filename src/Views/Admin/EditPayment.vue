@@ -7,29 +7,25 @@ import api from '../../services/api'
 const router = useRouter()
 const route = useRoute()
 
-// State
 const loading = ref(true)
 const isSubmitting = ref(false)
 const students = ref([])
 const payments = ref([])
 const expenses = ref([])
 
-// Form state
 const paymentId = ref(null)
 const formStudentId = ref('')
 const formAmount = ref('')
 const formDate = ref('')
 const showSuccess = ref(false)
 
-// Table filters
 const searchQuery = ref('')
 const filterMonth = ref('')
 const currentPage = ref(1)
 const itemsPerPage = 8
 
-const MONTH_NAMES = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember']
+const MONTH_NAMES = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember']
 
-// Fetch
 const fetchData = async () => {
   loading.value = true
   try {
@@ -41,11 +37,7 @@ const fetchData = async () => {
     students.value = studentsRes.data.Data || studentsRes.data || []
     payments.value = paymentsRes.data.Data || paymentsRes.data || []
     expenses.value = expensesRes.data.Data || expensesRes.data || []
-
-    // If navigated here with ?id=X, pre-select that payment for editing
-    if (route.query.id) {
-      loadPayment(route.query.id)
-    }
+    if (route.query.id) loadPayment(route.query.id)
   } catch (error) {
     console.error('Error fetching data:', error)
   } finally {
@@ -78,17 +70,19 @@ const formatDate = (dateStr) => {
   return dateStr
 }
 
-// Enriched payments list
 const enrichedPayments = computed(() => {
   return payments.value
     .map(p => {
       const student = students.value.find(s => Number(s.id) === Number(p.data_student_id))
+      const name = student ? (student.nama_siswa || 'U') : 'U'
+      const words = name.trim().split(/\s+/)
+      const avatar = words.length === 1 ? words[0].substring(0, 2).toUpperCase() : (words[0][0] + words[1][0]).toUpperCase()
       return {
         id: p.id,
         studentId: p.data_student_id,
-        studentName: student ? (student.nama_siswa || student.nama_lengkap || 'Unknown') : 'Unknown',
+        studentName: student ? (student.nama_siswa || student.nama_lengkap || 'Tidak Diketahui') : 'Tidak Diketahui',
         nis: student ? student.nis : '-',
-        avatar: (student ? (student.nama_siswa || 'U') : 'U').substring(0, 2).toUpperCase(),
+        avatar,
         amount: Number(p.jumlah_pemasukkan),
         date: p.tanggal_pemasukkan,
         dateObj: (() => {
@@ -110,10 +104,7 @@ const filteredPayments = computed(() => {
   let list = enrichedPayments.value
   if (searchQuery.value) {
     const q = searchQuery.value.toLowerCase()
-    list = list.filter(p =>
-      p.studentName.toLowerCase().includes(q) ||
-      String(p.nis).includes(q)
-    )
+    list = list.filter(p => p.studentName.toLowerCase().includes(q) || String(p.nis).includes(q))
   }
   if (filterMonth.value !== '') {
     list = list.filter(p => p.dateObj.getMonth() === Number(filterMonth.value))
@@ -130,7 +121,6 @@ const paginatedPayments = computed(() => {
 
 const resetPage = () => { currentPage.value = 1 }
 
-// Load payment into edit form
 const loadPayment = (id) => {
   const p = payments.value.find(pay => Number(pay.id) === Number(id))
   if (!p) return
@@ -141,7 +131,6 @@ const loadPayment = (id) => {
     ? p.tanggal_pemasukkan.split('T')[0]
     : p.tanggal_pemasukkan
   formDate.value = clean
-  // Scroll to form
   document.getElementById('edit-form-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
@@ -237,7 +226,7 @@ const editingStudent = computed(() => {
           <!-- Student info banner -->
           <div class="flex items-center gap-3 bg-blue-50 border border-blue-100 rounded-2xl p-4">
             <div class="w-10 h-10 rounded-full bg-blue-200 text-blue-700 font-black flex items-center justify-center text-sm flex-shrink-0">
-              {{ editingStudent ? (editingStudent.nama_siswa || 'U').substring(0, 2).toUpperCase() : '?' }}
+              {{ editingStudent ? (() => { const n = editingStudent.nama_siswa || 'U'; const w = n.trim().split(/\s+/); return w.length === 1 ? w[0].substring(0, 2).toUpperCase() : (w[0][0] + w[1][0]).toUpperCase() })() : '?' }}
             </div>
             <div class="min-w-0">
               <p class="text-sm font-black text-blue-900 truncate">{{ editingStudent ? (editingStudent.nama_siswa || editingStudent.nama_lengkap) : 'Unknown' }}</p>

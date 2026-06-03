@@ -1,9 +1,9 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import AdminLayout from '../../components/AdminLayout.vue'
 import api from '../../services/api'
 
-// State
 const loading = ref(true)
 const isSubmitting = ref(false)
 const description = ref('')
@@ -12,9 +12,10 @@ const transactionDate = ref(new Date().toISOString().split('T')[0])
 const selectedFile = ref(null)
 const previewImage = ref(null)
 const fileError = ref('')
-
 const expenditures = ref([])
 const payments = ref([])
+
+const router = useRouter()
 
 const saldoAktif = computed(() => {
   const totalIn = payments.value.reduce((sum, p) => sum + Number(p.jumlah_pemasukkan), 0)
@@ -22,7 +23,6 @@ const saldoAktif = computed(() => {
   return totalIn - totalOut
 })
 
-// Fetch
 const fetchExpenditures = async () => {
   loading.value = true
   try {
@@ -33,43 +33,32 @@ const fetchExpenditures = async () => {
     expenditures.value = expRes.data.Data || expRes.data || []
     payments.value = payRes.data.Data || payRes.data || []
   } catch (error) {
-    console.error("Error fetching expenditures:", error)
+    console.error('Error fetching expenditures:', error)
   } finally {
     loading.value = false
   }
 }
 
-onMounted(() => {
-  fetchExpenditures()
-})
+onMounted(() => { fetchExpenditures() })
 
-// File handling
 const handleFileChange = (e) => {
   const file = e.target.files[0]
   if (!file) return
-  
   if (file.size > 5 * 1024 * 1024) {
-    fileError.value = "Ukuran file melebihi batas 5MB."
+    fileError.value = 'Ukuran file melebihi batas 5MB.'
     selectedFile.value = null
     previewImage.value = null
     return
   }
-  
   fileError.value = ''
   selectedFile.value = file
-  
-  // Create preview
   const reader = new FileReader()
-  reader.onload = (e) => {
-    previewImage.value = e.target.result
-  }
+  reader.onload = (e) => { previewImage.value = e.target.result }
   reader.readAsDataURL(file)
 }
 
-// Submit
 const submitExpenditure = async () => {
   if (!description.value || !amount.value || !transactionDate.value || !selectedFile.value) return
-  
   isSubmitting.value = true
   try {
     const formData = new FormData()
@@ -77,36 +66,21 @@ const submitExpenditure = async () => {
     formData.append('jumlah_pengeluaran', Math.round(Number(amount.value)))
     formData.append('keterangan', description.value)
     formData.append('bukti_foto', selectedFile.value)
-    formData.append('user_id', 1) // Just hardcoded for now, or get from auth
-    
-    await api.post('/pengeluaran', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    })
-    
-    // Reset form
+    formData.append('user_id', 1)
+    await api.post('/pengeluaran', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
     description.value = ''
     amount.value = ''
     selectedFile.value = null
-    
-    // Refresh
     await fetchExpenditures()
-    
   } catch (error) {
-    console.error("Failed to submit:", error)
-    if (error.response) {
-      alert("Error: " + (error.response.data.message || JSON.stringify(error.response.data)))
-    }
+    console.error('Failed to submit:', error)
+    if (error.response) alert('Error: ' + (error.response.data.message || JSON.stringify(error.response.data)))
   } finally {
     isSubmitting.value = false
   }
 }
 
-import { useRouter } from 'vue-router'
-const router = useRouter()
-
-const editExpenditure = (id) => {
-  router.push({ path: '/admin/editexpenditure', query: { id } })
-}
+const editExpenditure = (id) => router.push({ path: '/admin/editexpenditure', query: { id } })
 
 const deleteExpenditure = async (id) => {
   if (!confirm('Hapus data pengeluaran ini?')) return
@@ -119,10 +93,8 @@ const deleteExpenditure = async (id) => {
   }
 }
 
-// Formatters
-const formatRupiah = (num) => {
-  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(num)
-}
+const formatRupiah = (num) =>
+  new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(num)
 
 const parseLocalDate = (dateStr) => {
   if (!dateStr) return new Date()
@@ -138,14 +110,12 @@ const formatDate = (dateStr) => {
   return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-// Derived states
-const recentProofs = computed(() => {
-  // Only show the 3 most recent
-  return expenditures.value.slice(0, 3).map(e => ({
+const recentProofs = computed(() =>
+  expenditures.value.slice(0, 3).map(e => ({
     id: e.id,
-    url: e.bukti_foto ? `http://127.0.0.1:8000/storage/${e.bukti_foto}` : 'https://placehold.co/100x100?text=No+Proof'
+    url: e.bukti_foto ? `http://127.0.0.1:8000/storage/${e.bukti_foto}` : 'https://placehold.co/100x100?text=Tidak+Ada'
   }))
-})
+)
 </script>
 
 <template>

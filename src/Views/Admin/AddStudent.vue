@@ -15,7 +15,6 @@ const students = ref([])
 const mode = ref('add') // 'add' or 'update'
 const selectedStudentId = ref('')
 
-// CSV Import state
 const showImportModal = ref(false)
 const importFile = ref(null)
 const importMode = ref('replace')
@@ -31,8 +30,6 @@ const fetchStudents = async () => {
   try {
     const res = await api.get('/student')
     students.value = res.data.Data || res.data || []
-    
-    // Check if editId is in query
     if (route.query.editId) {
       mode.value = 'update'
       selectedStudentId.value = Number(route.query.editId)
@@ -94,8 +91,8 @@ const submitForm = async () => {
     }
     
     submitSuccess.value = true
-    await fetchStudents() // refresh list
-    
+    await fetchStudents()
+
     setTimeout(() => {
       submitSuccess.value = false
     }, 3000)
@@ -109,7 +106,6 @@ const submitForm = async () => {
   }
 }
 
-// CSV Upload logic
 const openImportModal = () => {
   importFile.value = null
   importMode.value = 'replace'
@@ -154,7 +150,6 @@ const executeImport = async () => {
       errors: response.data.errors || []
     }
 
-    // Add to recently added
     recentlyAdded.value.unshift({
       id: Date.now(),
       name: `Import Massal (${response.data.imported} siswa)`,
@@ -162,7 +157,6 @@ const executeImport = async () => {
       time: 'Baru saja diimport'
     })
 
-    // Refresh student list
     await fetchStudents()
   } catch (error) {
     const errMsg = error.response?.data?.Message || error.response?.data?.errors?.file?.[0] || 'Gagal mengimport file CSV'

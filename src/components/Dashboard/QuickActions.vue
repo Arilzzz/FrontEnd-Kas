@@ -36,13 +36,13 @@ const colorMap = {
 </script>
 
 <template>
-  <div class="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm flex flex-col h-full">
-    <div class="mb-5">
-      <h3 class="text-lg font-bold text-gray-900">Aksi Cepat</h3>
-      <p class="text-xs text-gray-400 font-medium mt-0.5">Pintasan untuk mengelola kas kelas</p>
+  <div class="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm">
+    <div class="mb-4">
+      <h3 class="text-base font-bold text-gray-900">Aksi Cepat</h3>
+      <p class="text-xs text-gray-400 mt-0.5">Pintasan untuk mengelola kas kelas</p>
     </div>
 
-    <div class="flex flex-col gap-3 flex-1">
+    <div class="flex flex-col gap-3">
       <button
         v-for="action in actions"
         :key="action.path"

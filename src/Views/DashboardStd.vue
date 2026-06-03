@@ -1,4 +1,5 @@
 <script setup>
+// Vue 3 Composition API
 import { ref, computed, onMounted } from 'vue'
 import StudentLayout from '../components/StudentLayout.vue'
 import DashboardSummaryCards from '../components/Dashboard/DashboardSummaryCards.vue'
@@ -7,400 +8,254 @@ import RecentLedger from '../components/Dashboard/RecentLedger.vue'
 import SiswaMenunggak from '../components/Dashboard/SiswaMenunggak.vue'
 import api from '../services/api'
 
-// Logic exactly like Dashboard.vue but simplified
+// ─── State reaktif utama ─────────────────────────────────────────────────────
+// ref() membungkus nilai menjadi reaktif; akses/ubah via .value di dalam script
 const students = ref([])
 const payments = ref([])
 const expenses = ref([])
-const loading = ref(true)
+const loading  = ref(true)
 
-const WEEKLY_DUES = 2000;
+const WEEKLY_DUES = 2000  // iuran per minggu
 
-// Formatters
-const formatRupiah = (num) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(num)
-const formatShortRupiah = (num) => {
-  if (num >= 1000000) return `Rp ${(num / 1000000).toFixed(1)}M`
-  if (num >= 1000) return `Rp ${(num / 1000).toFixed(0)}k`
-  return `Rp ${num}`
+// ─── Helper: format rupiah menggunakan Intl.NumberFormat bawaan browser ───────
+const formatRupiah      = (n) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(n)
+const formatShortRupiah = (n) => n >= 1_000_000 ? `Rp ${(n/1_000_000).toFixed(1)}M` : n >= 1_000 ? `Rp ${(n/1_000).toFixed(0)}k` : `Rp ${n}`
+
+// ─── Helper: parse tanggal lokal (menghindari off-by-one timezone UTC) ────────
+const parseDate = (s) => {
+  if (!s) return new Date()
+  const clean = s.includes('T') ? s.split('T')[0] : s
+  const [y, m, d] = clean.split('-').map(Number)
+  return new Date(y, m - 1, d)
 }
 
-const filterMonth = ref('')
-const filterWeek = ref('')
-const isLedgerExpanded = ref(false)
-const toggleLedger = () => {
-  isLedgerExpanded.value = !isLedgerExpanded.value
+// ─── Helper: pengecekan hari relatif ─────────────────────────────────────────
+const sameDate  = (a, b) => a.getDate() === b.getDate() && a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear()
+const isToday   = (d) => sameDate(d, new Date())
+const isYesterday = (d) => { const y = new Date(); y.setDate(y.getDate() - 1); return sameDate(d, y) }
+
+const formatDate = (s) => {
+  const d = parseDate(s)
+  if (isToday(d))     return 'Hari Ini'
+  if (isYesterday(d)) return 'Kemarin'
+  // toLocaleDateString: format tanggal sesuai locale 'id-ID' (Bahasa Indonesia)
+  return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
-const parseLocalDate = (dateString) => {
-  if (!dateString) return new Date();
-  if (dateString.includes('T')) {
-    return new Date(dateString);
-  }
-  const parts = dateString.split('-');
-  if (parts.length === 3) {
-    return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
-  }
-  return new Date(dateString);
-}
-
-const getWeekOfMonth = (dateString) => {
-  const date = parseLocalDate(dateString);
-  const year = date.getFullYear();
-  const month = date.getMonth();
-  let firstMonday = new Date(year, month, 1);
-  while (firstMonday.getDay() !== 1) firstMonday.setDate(firstMonday.getDate() + 1);
-  if (date < firstMonday) return 'Minggu 1';
-  const diffDays = Math.floor((date - firstMonday) / (1000 * 60 * 60 * 24));
-  if (diffDays < 7) return 'Minggu 1';
-  if (diffDays < 14) return 'Minggu 2';
-  if (diffDays < 21) return 'Minggu 3';
-  return 'Minggu 4';
-}
-
-const formatDate = (dateString) => {
-  const d = parseLocalDate(dateString);
-  if (isToday(d)) return 'Hari Ini';
-  if (isYesterday(d)) return 'Kemarin';
-  return d.toLocaleDateString("id-ID", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-};
-
-// Date Helpers
-const isToday = (d) => {
-  const today = new Date()
-  return d.getDate() === today.getDate() && d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear()
-}
-const isYesterday = (d) => {
-  const y = new Date()
-  y.setDate(y.getDate() - 1)
-  return d.getDate() === y.getDate() && d.getMonth() === y.getMonth() && d.getFullYear() === y.getFullYear()
-}
-
+// ─── Helper: deteksi minggu ini (Senin–Minggu) ────────────────────────────────
 const getMonday = (d) => {
-  d = new Date(d);
-  var day = d.getDay(), diff = d.getDate() - day + (day == 0 ? -6 : 1);
-  return new Date(d.setDate(diff)).setHours(0,0,0,0);
+  const x = new Date(d)
+  const day = x.getDay()
+  x.setDate(x.getDate() - day + (day === 0 ? -6 : 1))
+  x.setHours(0, 0, 0, 0)
+  return x.getTime()
+}
+const isThisWeek  = (s) => { const t = new Date(s).getTime(); const mon = getMonday(new Date()); return t >= mon && t < mon + 7*86_400_000 }
+const isLastMonth = (s) => {
+  const d = new Date(s), now = new Date()
+  let m = now.getMonth() - 1, y = now.getFullYear()
+  if (m < 0) { m = 11; y-- }
+  return d.getMonth() === m && d.getFullYear() === y
 }
 
-const isThisWeek = (dateString) => {
-  const date = new Date(dateString).getTime();
-  const startOfWeek = getMonday(new Date());
-  const endOfWeek = startOfWeek + 7 * 24 * 60 * 60 * 1000;
-  return date >= startOfWeek && date < endOfWeek;
+// ─── Helper: minggu ke-n berdasarkan Senin pertama bulan ─────────────────────
+const getWeekOfMonth = (s) => {
+  const date = parseDate(s)
+  const mon  = new Date(date.getFullYear(), date.getMonth(), 1)
+  while (mon.getDay() !== 1) mon.setDate(mon.getDate() + 1)
+  if (date < mon) return 'Minggu 1'
+  const diff = Math.floor((date - mon) / 86_400_000)
+  return `Minggu ${Math.min(Math.floor(diff / 7) + 1, 4)}`
 }
 
-const isLastMonth = (dateString) => {
-  const d = new Date(dateString);
-  const today = new Date();
-  let lastMonth = today.getMonth() - 1;
-  let year = today.getFullYear();
-  if (lastMonth < 0) { lastMonth = 11; year--; }
-  return d.getMonth() === lastMonth && d.getFullYear() === year;
-}
+// ─── State filter ledger & expand ────────────────────────────────────────────
+const filterMonth      = ref('')
+const filterWeek       = ref('')
+const isLedgerExpanded = ref(false)
+const toggleLedger     = () => { isLedgerExpanded.value = !isLedgerExpanded.value }
 
-// 1. Current Balance
-const currentBalanceRaw = computed(() => {
-  const totalIn = payments.value.reduce((sum, p) => sum + Number(p.jumlah_pemasukkan), 0)
-  const totalOut = expenses.value.reduce((sum, e) => sum + Number(e.jumlah_pengeluaran), 0)
-  return totalIn - totalOut
-})
+// ─── Helper: ambil total pemasukan bulan tertentu ────────────────────────────
+const incomeOfMonth = (m, y) =>
+  payments.value
+    .filter(p => { const d = new Date(p.tanggal_pemasukkan); return d.getMonth() === m && d.getFullYear() === y })
+    .reduce((s, p) => s + Number(p.jumlah_pemasukkan), 0)
+
+const expenseOfMonth = (m, y) =>
+  expenses.value
+    .filter(e => { const d = new Date(e.tanggal_pengeluaran); return d.getMonth() === m && d.getFullYear() === y })
+    .reduce((s, e) => s + Number(e.jumlah_pengeluaran), 0)
+
+// ─── computed(): nilai turunan; di-cache, hanya recalculate saat dependency berubah ──
+const currentBalanceRaw   = computed(() =>
+  payments.value.reduce((s,p) => s + Number(p.jumlah_pemasukkan), 0) -
+  expenses.value.reduce((s,e) => s + Number(e.jumlah_pengeluaran), 0)
+)
 const currentBalance = computed(() => formatRupiah(currentBalanceRaw.value))
 
-// Balance vs last month trend
 const balanceTrend = computed(() => {
-  const incomeThisMonth = payments.value.filter(p => new Date(p.tanggal_pemasukkan).getMonth() === new Date().getMonth()).reduce((s,p)=>s+Number(p.jumlah_pemasukkan),0)
-  const incomeLastMonth = payments.value.filter(p => isLastMonth(p.tanggal_pemasukkan)).reduce((s,p)=>s+Number(p.jumlah_pemasukkan),0)
-  if (incomeLastMonth === 0) return '+100%'
-  const percent = ((incomeThisMonth - incomeLastMonth) / incomeLastMonth) * 100
-  return `${percent > 0 ? '+' : ''}${percent.toFixed(1)}%`
+  const now = new Date()
+  const cur = incomeOfMonth(now.getMonth(), now.getFullYear())
+  const prv = payments.value.filter(p => isLastMonth(p.tanggal_pemasukkan)).reduce((s,p)=>s+Number(p.jumlah_pemasukkan),0)
+  if (!prv) return '+100%'
+  return `${((cur-prv)/prv*100).toFixed(1).replace(/^(?!-)/, '+')}%`
 })
 
-// 2. Quick Stats
-const totalStudents = computed(() => students.value.length)
+const totalStudents      = computed(() => students.value.length)
+const incomeThisMonthRaw = computed(() => incomeOfMonth(new Date().getMonth(), new Date().getFullYear()))
+const incomeThisMonth    = computed(() => formatRupiah(incomeThisMonthRaw.value))
 
-const unpaidThisWeek = computed(() => {
-  const paidThisWeekIds = payments.value
-    .filter(p => isThisWeek(p.tanggal_pemasukkan))
-    .map(p => Number(p.data_student_id))
-  
-  return students.value.filter(s => !paidThisWeekIds.includes(Number(s.id))).length
-})
+const totalTunggakanRaw  = computed(() => Math.max(0, totalStudents.value * 4 * WEEKLY_DUES - incomeThisMonthRaw.value))
+const totalTunggakan     = computed(() => formatRupiah(totalTunggakanRaw.value))
 
-const incomeThisMonthRaw = computed(() => {
-  const currentMonth = new Date().getMonth();
-  const currentYear = new Date().getFullYear();
-  return payments.value
-    .filter(p => {
-      const d = new Date(p.tanggal_pemasukkan);
-      return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-    })
-    .reduce((sum, p) => sum + Number(p.jumlah_pemasukkan), 0);
-})
-const incomeThisMonth = computed(() => formatRupiah(incomeThisMonthRaw.value))
+const totalExpenseThisMonth = computed(() => formatRupiah(expenseOfMonth(new Date().getMonth(), new Date().getFullYear())))
 
-const totalTunggakanRaw = computed(() => {
-  const targetTotal = students.value.length * 4 * WEEKLY_DUES;
-  const diff = targetTotal - incomeThisMonthRaw.value;
-  return diff > 0 ? diff : 0;
-})
-const totalTunggakan = computed(() => formatRupiah(totalTunggakanRaw.value))
-
-const totalExpenseThisMonthRaw = computed(() => {
-  const currentMonth = new Date().getMonth();
-  const currentYear = new Date().getFullYear();
-  return expenses.value
-    .filter(e => {
-      const d = new Date(e.tanggal_pengeluaran);
-      return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-    })
-    .reduce((sum, e) => sum + Number(e.jumlah_pengeluaran), 0);
-})
-const totalExpenseThisMonth = computed(() => formatRupiah(totalExpenseThisMonthRaw.value))
-
-// Collection rate for ClassInfo
-const collectionRate = computed(() => {
-  if (totalStudents.value === 0) return '0%';
-  const targetTotal = totalStudents.value * 4 * WEEKLY_DUES;
-  if (targetTotal === 0) return '100%';
-  const rate = Math.round((incomeThisMonthRaw.value / targetTotal) * 100);
-  return `${rate > 100 ? 100 : rate}%`;
-})
-
-// 3. Recent Ledger
-const recentLedger = computed(() => {
-  let allLedger = [
-    ...payments.value.map(p => {
-      const student = students.value.find(s => Number(s.id) === Number(p.data_student_id))
-      return {
-        id: `p-${p.id}`,
-        type: 'income',
-        title: `Iuran - ${student ? (student.nama_siswa || student.nama_lengkap || '').split(' ')[0] : 'Unknown'}`,
-        amount: Number(p.jumlah_pemasukkan),
-        date: p.tanggal_pemasukkan,
-        created_at: p.created_at || p.tanggal_pemasukkan
-      }
-    }),
-    ...expenses.value.map(e => ({
-      id: `e-${e.id}`,
-      type: 'expense',
-      title: e.keterangan || 'Pengeluaran',
-      amount: Number(e.jumlah_pengeluaran),
-      date: e.tanggal_pengeluaran,
-      created_at: e.created_at || e.tanggal_pengeluaran
-    }))
-  ]
-
-  // Apply filters
-  if (filterMonth.value !== "") {
-    allLedger = allLedger.filter((item) => {
-      return parseLocalDate(item.date).getMonth() === Number(filterMonth.value);
-    });
-  }
-  if (filterWeek.value !== "") {
-    allLedger = allLedger.filter((item) => {
-      return getWeekOfMonth(item.date) === filterWeek.value;
-    });
-  }
-
-  // Sort by created_at desc — shows latest transaction first regardless of payment date
-  allLedger.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-  return allLedger // RecentLedger handles slicing internally
-})
-
-const weeklyTotalRaw = computed(() => {
-  const incomeThisWeek = payments.value.filter(p => isThisWeek(p.tanggal_pemasukkan)).reduce((s,p)=>s+Number(p.jumlah_pemasukkan), 0)
-  const expenseThisWeek = expenses.value.filter(e => isThisWeek(e.tanggal_pengeluaran)).reduce((s,e)=>s+Number(e.jumlah_pengeluaran), 0)
-  return incomeThisWeek - expenseThisWeek
-})
-
-// 4. Financial Performance Chart
+// ─── Data untuk chart performa 5 bulan terakhir ──────────────────────────────
 const chartData = computed(() => {
-  const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
-  const data = []
-  
-  const currentMonth = new Date().getMonth()
-  for (let i = 4; i >= 0; i--) {
-    let m = currentMonth - i
-    let y = new Date().getFullYear()
-    if (m < 0) { m += 12; y--; }
-    
-    const inc = payments.value.filter(p => new Date(p.tanggal_pemasukkan).getMonth() === m && new Date(p.tanggal_pemasukkan).getFullYear() === y).reduce((s,p)=>s+Number(p.jumlah_pemasukkan),0)
-    const exp = expenses.value.filter(e => new Date(e.tanggal_pengeluaran).getMonth() === m && new Date(e.tanggal_pengeluaran).getFullYear() === y).reduce((s,e)=>s+Number(e.jumlah_pengeluaran),0)
-    
-    data.push({ month: months[m], income: inc, expense: exp })
-  }
-  
-  const maxVal = Math.max(...data.flatMap(d => [d.income, d.expense]), 10000)
-  
+  const MONTHS = ['JAN','FEB','MAR','APR','MEI','JUN','JUL','AGS','SEP','OKT','NOV','DES']
+  const now = new Date()
+  const data = Array.from({ length: 5 }, (_, i) => {
+    let m = now.getMonth() - (4 - i), y = now.getFullYear()
+    if (m < 0) { m += 12; y-- }
+    return { month: MONTHS[m], income: incomeOfMonth(m, y), expense: expenseOfMonth(m, y) }
+  })
+  const maxVal = Math.max(...data.flatMap(d => [d.income, d.expense]), 10_000)
   return data.map(d => ({
     ...d,
-    incomeHeight: `${(d.income / maxVal) * 100}%`,
-    expenseHeight: `${(d.expense / maxVal) * 100}%`
+    incomeHeight:  `${(d.income  / maxVal) * 100}%`,
+    expenseHeight: `${(d.expense / maxVal) * 100}%`,
   }))
 })
 
-// 5. Payment Status Matrix
-const matrixData = computed(() => {
-  return students.value.map(student => {
-    const studentPayments = payments.value.filter(p => Number(p.data_student_id) === Number(student.id))
-    const paymentThisWeek = studentPayments.find(p => isThisWeek(p.tanggal_pemasukkan))
-    
-    return {
-      id: student.id,
-      name: student.nama_siswa || student.nama_lengkap,
-      avatar: (student.nama_siswa || student.nama_lengkap || 'U').substring(0, 2).toUpperCase(),
-      status: paymentThisWeek ? 'PAID' : 'UNPAID',
-      date: paymentThisWeek ? formatDate(paymentThisWeek.tanggal_pemasukkan) : '—',
-      amount: paymentThisWeek ? formatRupiah(paymentThisWeek.jumlah_pemasukkan) : 'Rp 0'
-    }
-  })
+// ─── Ledger: gabungan pemasukan dan pengeluaran, difilter dan diurutkan ───────
+const recentLedger = computed(() => {
+  let list = [
+    ...payments.value.map(p => {
+      const s = students.value.find(x => Number(x.id) === Number(p.data_student_id))
+      return {
+        id:         `p-${p.id}`,
+        type:       'income',
+        title:      `Pembayaran - ${s ? (s.nama_siswa||'').split(' ')[0] : 'Tidak Diketahui'}`,
+        amount:     Number(p.jumlah_pemasukkan),
+        date:       p.tanggal_pemasukkan,
+        created_at: p.created_at || p.tanggal_pemasukkan,
+      }
+    }),
+    ...expenses.value.map(e => ({
+      id:         `e-${e.id}`,
+      type:       'expense',
+      title:      e.keterangan || 'Pengeluaran',
+      amount:     Number(e.jumlah_pengeluaran),
+      date:       e.tanggal_pengeluaran,
+      created_at: e.created_at || e.tanggal_pengeluaran,
+      bukti_foto: e.bukti_foto || null,
+    })),
+  ]
+
+  if (filterMonth.value !== '')
+    list = list.filter(i => parseDate(i.date).getMonth() === Number(filterMonth.value))
+  if (filterWeek.value !== '')
+    list = list.filter(i => getWeekOfMonth(i.date) === filterWeek.value)
+
+  // Urutkan terbaru di atas berdasarkan waktu dibuat (bukan tanggal bayar)
+  return list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
 })
 
-const fetchData = async () => {
-  loading.value = true;
-  try {
-    const [studentsRes, paymentsRes, expensesRes] = await Promise.all([
-      api.get('/student').catch(() => ({ data: { Data: [] } })),
-      api.get('/pembayaran').catch(() => ({ data: { Data: [] } })),
-      api.get('/pengeluaran').catch(() => ({ data: { Data: [] } }))
-    ]);
+const weeklyTotalRaw = computed(() => {
+  const inc = payments.value.filter(p => isThisWeek(p.tanggal_pemasukkan)).reduce((s,p)=>s+Number(p.jumlah_pemasukkan),0)
+  const exp = expenses.value.filter(e => isThisWeek(e.tanggal_pengeluaran)).reduce((s,e)=>s+Number(e.jumlah_pengeluaran),0)
+  return inc - exp
+})
 
-    students.value = studentsRes.data.Data || studentsRes.data || [];
-    payments.value = paymentsRes.data.Data || paymentsRes.data || [];
-    expenses.value = expensesRes.data.Data || expensesRes.data || [];
-    
-  } catch (error) {
-    console.error("Error fetching data:", error);
-    // Dummy fallback
-    students.value = Array.from({length: 36}, (_, i) => ({id: i+1, nama_siswa: `Student ${i+1}`}))
-    payments.value = [
-      { id: 1, data_student_id: 1, tanggal_pemasukkan: new Date().toISOString(), jumlah_pemasukkan: 20000 },
-      { id: 2, data_student_id: 2, tanggal_pemasukkan: new Date().toISOString(), jumlah_pemasukkan: 20000 }
-    ]
-    expenses.value = [
-      { id: 1, tanggal_pengeluaran: new Date(new Date().setDate(new Date().getDate()-1)).toISOString(), jumlah_pengeluaran: 45000, keterangan: 'Whiteboard Markers' }
-    ]
-  } finally {
-    loading.value = false;
-  }
-}
-
+// ─── State & logic kartu status pembayaran personal siswa ────────────────────
 const loggedInUser = ref(null)
 
-// Personal Contribution status (e.g. Weeks 1, 2, 3, 4 of the current month)
-const studentPaymentsFiltered = computed(() => {
+const myPayments = computed(() => {
   if (!loggedInUser.value) return []
   return payments.value.filter(p => Number(p.data_student_id) === Number(loggedInUser.value.id))
 })
 
-// ── Carry-over payment logic (base = first payment month) ────────────────
-// KEY: We count from the first Monday of the FIRST payment month,
-// NOT from school year start. So paying 20k in May covers 10 weeks from May.
+const selectedMonth = ref(new Date().getMonth())
+const selectedYear  = ref(new Date().getFullYear())
+const MONTH_SHORT   = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des']
 
-const parseLocalDateStd = (dateStr) => {
-  if (!dateStr) return new Date()
-  const clean = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr
-  const parts = clean.split('-')
-  if (parts.length === 3) return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]))
-  return new Date(dateStr)
+const shiftMonth = (dir) => {
+  const next = selectedMonth.value + dir
+  if (next < 0)  { selectedMonth.value = 11; selectedYear.value-- }
+  else if (next > 11) { selectedMonth.value = 0;  selectedYear.value++ }
+  else selectedMonth.value = next
 }
 
-// Get the Nth Monday in a given month/year
-const getNthMondayOfMonth = (year, month, n) => {
-  let d = new Date(year, month, 1)
-  while (d.getDay() !== 1) d.setDate(d.getDate() + 1)
-  return new Date(d.getTime() + (n - 1) * 7 * 86400000)
-}
-
-// Base = first Monday of the month of the student's FIRST payment
+// Base = Senin pertama bulan pembayaran pertama → titik awal penghitungan carry-over
 const myBase = computed(() => {
-  const sp = studentPaymentsFiltered.value
-  if (!sp.length) {
-    // Default to first Monday of selected progress month
-    let d = new Date(selectedProgressYear.value, selectedProgressMonth.value, 1)
-    while (d.getDay() !== 1) d.setDate(d.getDate() + 1)
-    return d
-  }
-  const sorted = [...sp].sort((a, b) =>
-    parseLocalDateStd(a.tanggal_pemasukkan) - parseLocalDateStd(b.tanggal_pemasukkan)
-  )
-  const first = parseLocalDateStd(sorted[0].tanggal_pemasukkan)
-  let d = new Date(first.getFullYear(), first.getMonth(), 1)
+  const sp = myPayments.value
+  const fallbackDate = new Date(selectedYear.value, selectedMonth.value, 1)
+  const startDate = sp.length
+    ? [...sp].sort((a,b) => parseDate(a.tanggal_pemasukkan) - parseDate(b.tanggal_pemasukkan))[0].tanggal_pemasukkan
+    : fallbackDate.toISOString()
+  const d = parseDate(startDate)
+  const base = new Date(d.getFullYear(), d.getMonth(), 1)
+  while (base.getDay() !== 1) base.setDate(base.getDate() + 1)
+  return base
+})
+
+// Senin ke-n dalam bulan tertentu
+const getNthMonday = (y, m, n) => {
+  const d = new Date(y, m, 1)
   while (d.getDay() !== 1) d.setDate(d.getDate() + 1)
-  return d
-})
-
-// Month selector for personal progress card
-const selectedProgressMonth = ref(new Date().getMonth())
-const selectedProgressYear = ref(new Date().getFullYear())
-
-const MONTH_NAMES_ID = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des']
-
-const prevProgressMonth = () => {
-  if (selectedProgressMonth.value === 0) {
-    selectedProgressMonth.value = 11
-    selectedProgressYear.value--
-  } else {
-    selectedProgressMonth.value--
-  }
-}
-const nextProgressMonth = () => {
-  if (selectedProgressMonth.value === 11) {
-    selectedProgressMonth.value = 0
-    selectedProgressYear.value++
-  } else {
-    selectedProgressMonth.value++
-  }
+  return new Date(d.getTime() + (n-1) * 7 * 86_400_000)
 }
 
+// Minggu mana saja yang sudah lunas di bulan yang dipilih
 const myWeeksPaid = computed(() => {
-  const totalPaid = studentPaymentsFiltered.value.reduce((sum, p) => sum + Number(p.jumlah_pemasukkan), 0)
-  if (!totalPaid) return []
-  const covered = Math.floor(totalPaid / WEEKLY_DUES)
-  const base = myBase.value
-  const result = []
-  for (let n = 1; n <= 4; n++) {
-    const monday = getNthMondayOfMonth(selectedProgressYear.value, selectedProgressMonth.value, n)
-    const ord = Math.floor((monday.getTime() - base.getTime()) / (7 * 86400000)) + 1
-    if (ord >= 1 && ord <= covered) result.push(`Minggu ${n}`)
-  }
-  return result
+  const total   = myPayments.value.reduce((s,p)=>s+Number(p.jumlah_pemasukkan),0)
+  if (!total) return []
+  const covered = Math.floor(total / WEEKLY_DUES)
+  return [1,2,3,4].reduce((acc, n) => {
+    const ord = Math.floor((getNthMonday(selectedYear.value, selectedMonth.value, n) - myBase.value) / (7*86_400_000)) + 1
+    if (ord >= 1 && ord <= covered) acc.push(`Minggu ${n}`)
+    return acc
+  }, [])
 })
 
-const myTotalPaidFormatted = computed(() => {
-  const total = studentPaymentsFiltered.value.reduce((sum, p) => sum + Number(p.jumlah_pemasukkan), 0)
-  return formatRupiah(total)
-})
+const myTotalPaid = computed(() =>
+  formatRupiah(myPayments.value.reduce((s,p)=>s+Number(p.jumlah_pemasukkan),0))
+)
 
-const myOutstandingFormatted = computed(() => {
-  // How many weeks from base have elapsed up to and including current week?
+const myOutstanding = computed(() => {
   const now = new Date()
-  let thisMonday = new Date(now)
-  while (thisMonday.getDay() !== 1) thisMonday.setDate(thisMonday.getDate() - 1)
-  const base = myBase.value
-  const currentWeekOrd = Math.floor((thisMonday.getTime() - base.getTime()) / (7 * 86400000)) + 1
-  const totalPaid = studentPaymentsFiltered.value.reduce((sum, p) => sum + Number(p.jumlah_pemasukkan), 0)
-  const covered = Math.floor(totalPaid / WEEKLY_DUES)
-  const outstanding = Math.max(0, currentWeekOrd - covered) * WEEKLY_DUES
-  return formatRupiah(outstanding)
+  let mon   = new Date(now)
+  while (mon.getDay() !== 1) mon.setDate(mon.getDate() - 1)
+  const weekOrd = Math.floor((mon - myBase.value) / (7*86_400_000)) + 1
+  const covered = Math.floor(myPayments.value.reduce((s,p)=>s+Number(p.jumlah_pemasukkan),0) / WEEKLY_DUES)
+  return formatRupiah(Math.max(0, weekOrd - covered) * WEEKLY_DUES)
 })
 
+// ─── Fetch data dari API menggunakan Promise.all (parallel request) ───────────
+// Promise.all: semua request dijalankan bersamaan, tunggu semuanya selesai
+const fetchData = async () => {
+  loading.value = true
+  try {
+    const [sRes, pRes, eRes] = await Promise.all([
+      api.get('/student').catch(()   => ({ data: { Data: [] } })),
+      api.get('/pembayaran').catch(() => ({ data: { Data: [] } })),
+      api.get('/pengeluaran').catch(() => ({ data: { Data: [] } })),
+    ])
+    students.value = sRes.data.Data || sRes.data || []
+    payments.value = pRes.data.Data || pRes.data || []
+    expenses.value = eRes.data.Data || eRes.data || []
+  } catch (e) {
+    console.error('Gagal memuat data:', e)
+  } finally {
+    loading.value = false
+  }
+}
+
+// onMounted: lifecycle hook Vue, dijalankan setelah komponen pertama kali ditampilkan di DOM
 onMounted(() => {
   fetchData()
-  const data = localStorage.getItem('user_data')
-  if (data) {
-    loggedInUser.value = JSON.parse(data)
-  }
+  const raw = localStorage.getItem('user_data')
+  if (raw) loggedInUser.value = JSON.parse(raw)
 })
-
-const getMonthWeekText = () => {
-  const d = new Date()
-  const month = d.toLocaleString('default', { month: 'long' })
-  const week = Math.ceil(d.getDate() / 7)
-  return `${month} Week ${week}`
-}
 </script>
 
 <template>
@@ -408,8 +263,10 @@ const getMonthWeekText = () => {
     <div class="mb-8">
       <h1 class="text-3xl font-bold text-gray-900 tracking-tight">Dashboard Keuangan Kelas</h1>
       <p class="text-gray-500 mt-1">Pantau pemasukan, pengeluaran, dan saldo kas kelas secara transparan dan akurat.</p>
-    </div>    
-    <DashboardSummaryCards 
+    </div>
+
+    <!-- Kartu ringkasan KPI atas -->
+    <DashboardSummaryCards
       :currentBalance="currentBalance"
       :balanceTrend="balanceTrend"
       :totalStudents="totalStudents"
@@ -418,82 +275,90 @@ const getMonthWeekText = () => {
       :totalExpense="totalExpenseThisMonth"
     />
 
+    <!-- Baris tengah: Chart kiri, Status pembayaran personal kanan -->
     <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
-      <!-- Row 1 Left: Financial Chart -->
       <div class="xl:col-span-2">
-        <FinancialChart 
-          :chartData="chartData"
-          :formatShortRupiah="formatShortRupiah"
-        />
+        <FinancialChart :chartData="chartData" :formatShortRupiah="formatShortRupiah" />
       </div>
 
-      <!-- Row 1 Right: Personal Student Payment Status Card -->
       <div class="xl:col-span-1">
         <div v-if="loggedInUser" class="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm flex flex-col justify-between h-full min-h-[350px]">
-          <div class="mb-4">
-            <div class="flex items-center gap-2.5">
-              <span class="text-xl">👋</span>
-              <div>
-                <h3 class="text-sm font-black text-gray-900 leading-none">Status Kas Kamu</h3>
-                <p class="text-[11px] font-semibold text-gray-500 mt-1">{{ loggedInUser.nama_siswa || loggedInUser.nama_lengkap }} (NIS: {{ loggedInUser.nis }})</p>
-              </div>
+          <!-- Header kartu personal -->
+          <div class="mb-4 flex items-center gap-2.5">
+            <span class="text-xl">👋</span>
+            <div>
+              <h3 class="text-sm font-black text-gray-900 leading-none">Status Pembayaran Kamu</h3>
+              <p class="text-[11px] font-semibold text-gray-500 mt-1">
+                {{ loggedInUser.nama_siswa || loggedInUser.nama_lengkap }} (NIS: {{ loggedInUser.nis }})
+              </p>
             </div>
           </div>
-          
-          <!-- Weekly Indicators with month selector -->
+
+          <!-- Navigator bulan + indikator minggu -->
           <div class="bg-gray-50 rounded-2xl p-4 mb-4 border border-gray-100/50">
-            <!-- Month navigator -->
             <div class="flex items-center justify-between mb-3">
-              <button @click="prevProgressMonth" class="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-200 rounded-lg transition-all">
+              <button @click="shiftMonth(-1)" class="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-200 rounded-lg transition-all">
                 <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>
               </button>
               <p class="text-[10px] font-black text-gray-600 uppercase tracking-wider">
-                Progres Kas — {{ MONTH_NAMES_ID[selectedProgressMonth] }} {{ selectedProgressYear }}
+                Progres Pembayaran — {{ MONTH_SHORT[selectedMonth] }} {{ selectedYear }}
               </p>
-              <button @click="nextProgressMonth" class="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-200 rounded-lg transition-all">
+              <button @click="shiftMonth(1)" class="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-200 rounded-lg transition-all">
                 <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
               </button>
             </div>
+            <!-- Indikator 4 minggu -->
             <div class="flex justify-between items-center px-2">
-              <div v-for="(weekName, weekKey) in { 'w1': 'Minggu 1', 'w2': 'Minggu 2', 'w3': 'Minggu 3', 'w4': 'Minggu 4' }" :key="weekKey" class="flex flex-col items-center gap-1.5">
+              <div v-for="n in 4" :key="n" class="flex flex-col items-center gap-1.5">
                 <div class="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold transition-all shadow-sm border"
-                     :class="myWeeksPaid.includes(weekName) ? 'bg-green-600 text-white border-green-700 shadow-green-100' : 'bg-red-50 text-red-600 border-red-100 shadow-red-50'">
-                  <svg v-if="myWeeksPaid.includes(weekName)" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+                  :class="myWeeksPaid.includes(`Minggu ${n}`)
+                    ? 'bg-green-600 text-white border-green-700 shadow-green-100'
+                    : 'bg-red-50 text-red-600 border-red-100 shadow-red-50'">
+                  <svg v-if="myWeeksPaid.includes(`Minggu ${n}`)" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
+                  </svg>
                   <span v-else class="text-xs">✕</span>
                 </div>
-                <span class="text-[9px] font-black text-gray-500 uppercase tracking-widest">{{ weekName.split(' ')[1] }}</span>
+                <span class="text-[9px] font-black text-gray-500 uppercase tracking-widest">{{ n }}</span>
               </div>
             </div>
           </div>
 
-          
+          <!-- Total setor & tunggakan -->
           <div class="grid grid-cols-2 gap-3 mb-4">
             <div class="bg-blue-50/50 border border-blue-100/30 rounded-xl p-3 text-center">
               <p class="text-[9px] font-black text-blue-600 uppercase tracking-wider mb-0.5">Total Setor</p>
-              <p class="text-sm font-black text-blue-800">{{ myTotalPaidFormatted }}</p>
+              <p class="text-sm font-black text-blue-800">{{ myTotalPaid }}</p>
             </div>
             <div class="bg-amber-50/50 border border-amber-100/30 rounded-xl p-3 text-center">
               <p class="text-[9px] font-black text-amber-600 uppercase tracking-wider mb-0.5">Tunggakan Kamu</p>
-              <p class="text-sm font-black" :class="myOutstandingFormatted !== 'Rp 0' ? 'text-red-600' : 'text-green-600'">{{ myOutstandingFormatted }}</p>
+              <p class="text-sm font-black" :class="myOutstanding !== 'Rp 0' ? 'text-red-600' : 'text-green-600'">
+                {{ myOutstanding }}
+              </p>
             </div>
           </div>
-          
-          <!-- Instructions -->
+
+          <!-- Info cara bayar -->
           <div class="bg-blue-50/60 rounded-2xl p-4 border border-blue-100 flex gap-3 text-[11px] leading-relaxed">
-            <svg class="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <svg class="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
             <div>
               <p class="font-bold text-blue-900 mb-1">Cara Pembayaran Kas:</p>
-              <p class="text-blue-700 font-medium">Silakan setor kas secara langsung ke **Bendahara Kelas** (Rp 2.000 / minggu), atau transfer ke rekening kelas dan konfirmasikan pembayaran Anda.</p>
+              <p class="text-blue-700 font-medium">Setor langsung ke Bendahara Kelas (Rp 2.000/minggu) atau transfer ke rekening kelas.</p>
             </div>
           </div>
         </div>
       </div>
     </div>
 
+    <!-- Baris bawah: Status Pembayaran Siswa (2 kolom) + Aktivitas Terbaru (1 kolom) -->
     <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
-      <!-- Row 2 Left: Recent Ledger -->
-      <div :class="isLedgerExpanded ? 'xl:col-span-3' : 'xl:col-span-2'">
-        <RecentLedger 
+      <div :class="isLedgerExpanded ? 'xl:col-span-1' : 'xl:col-span-2'">
+        <SiswaMenunggak :students="students" :payments="payments" :weeklyDues="WEEKLY_DUES" />
+      </div>
+      <div :class="isLedgerExpanded ? 'xl:col-span-2' : 'xl:col-span-1'">
+        <RecentLedger
           :recentLedger="recentLedger"
           :formatDate="formatDate"
           :formatShortRupiah="formatShortRupiah"
@@ -503,15 +368,6 @@ const getMonthWeekText = () => {
           v-model:filterMonth="filterMonth"
           v-model:filterWeek="filterWeek"
           @toggle="toggleLedger"
-        />
-      </div>
-
-      <!-- Row 2 Right: Siswa Menunggak -->
-      <div v-if="!isLedgerExpanded" class="xl:col-span-1">
-        <SiswaMenunggak
-          :students="students"
-          :payments="payments"
-          :weeklyDues="WEEKLY_DUES"
         />
       </div>
     </div>
